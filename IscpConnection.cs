@@ -309,6 +309,11 @@ partial class IscpConnection : IConnectionCallbacks
     }
 }
 
+public interface IIscpDownstreamCallbacks
+{
+    void OnReceiveMetadata(IscpDownstream downstream, DownstreamMetadata message);
+}
+
 public class IscpDownstream : IEquatable<IscpDownstream>
 {
     public readonly Guid Id;
@@ -316,7 +321,7 @@ public class IscpDownstream : IEquatable<IscpDownstream>
     public readonly string NodeId;
     public readonly string DataName;
     public readonly string DataType;
-    public Action<DateTime, DataPointGroup> Callback;
+    internal Action<DateTime, DataPointGroup> Callback;
 
     private string compDataName;
     private string compDataType;
@@ -329,6 +334,8 @@ public class IscpDownstream : IEquatable<IscpDownstream>
         lock (streamLock)
             Downstream = downstream;
     }
+
+    public IIscpDownstreamCallbacks Callbacks;
 
     public DateTime BaseTime { internal set; get; }
 
@@ -521,13 +528,13 @@ partial class IscpConnection : IDownstreamCallbacks
                 // オープン成功。
                 Debug.Log($"[{ConnName}] Successfully open downstream(id: {downstream.Id})");
                 this.downstream = downstream;
+                // 受信データを取り扱うためにデリゲートを設定します。
+                downstream.Callbacks = this; // IDownstreamCallbacks
                 foreach (var r in registeredDownstreams)
                 {
                     r.SetDownstream(downstream);
                     r.BaseTime = DateTime.UtcNow;
                 }
-                // 受信データを取り扱うためにデリゲートを設定します。
-                downstream.Callbacks = this; // IDownstreamCallbacks
             });
     }
 
@@ -595,6 +602,10 @@ partial class IscpConnection : IDownstreamCallbacks
                 Debug.Log($"[{ConnName}] OnReceiveMetadata baseTime downstream[{downstream.Id}] name: {baseTime.Name}, baseTime: {dateTime} - IDownstreamCallbacks");
                 break;
             default: break;
+        }
+        foreach (var r in registeredDownstreams)
+        {
+            r.Callbacks?.OnReceiveMetadata(r, message);
         }
     }
 
