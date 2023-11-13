@@ -44,9 +44,9 @@ public class IntdashApiManager : MonoBehaviour
     {
         [IntdashEnumItem("API Token")]
         ApiToken = 0,
-        [IntdashEnumItem("Client Secret（Edge UUID）")]
+        [IntdashEnumItem("Client Secret (Edge UUID)")]
         EdgeClientSecret = 1,
-        [IntdashEnumItem("Client Secret（OAuth2）")]
+        [IntdashEnumItem("Client Secret (OAuth2)")]
         OAuth2ClientSecret = 2
     }
     [IntdashLabel("Authorization Type"), IntdashEnum(typeof(AuthorizationType))]
@@ -77,7 +77,7 @@ public class IntdashApiManager : MonoBehaviour
     [Serializable]
     public class EdgeClientSecretAuthorizationInfo
     {
-        [IntdashLabel("Client ID（Edge UUID）")]
+        [IntdashLabel("Client ID (Edge UUID)")]
         /// <summary>
         /// クライアントID。
         /// </summary>

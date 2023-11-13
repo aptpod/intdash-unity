@@ -147,7 +147,7 @@ partial class IscpConnection : IConnectionCallbacks
     /// <summary>
     /// NodeID が空の状態であっても IntdashApiManager の AuthorizationType が ClientSecret であり、ClientID が設定されている場合はその情報が自動でセットされます。
     /// </summary>
-    [IntdashLabel("Node ID（Edge UUID）")]
+    [IntdashLabel("Node ID (Edge UUID)")]
     public string NodeId = "";
 
     private string projectUuid;
@@ -855,7 +855,7 @@ partial class IscpConnection : IUpstreamCallbacks
     private object upstreamLock = new object();
 
     [SerializeField]
-    [IntdashLabel("Session ID（Measurement UUID）")]
+    [IntdashLabel("Session ID (Measurement UUID)")]
     private string SessionId = "";
     [SerializeField]
     private UInt64 generatedSequenceNumber = 0;
