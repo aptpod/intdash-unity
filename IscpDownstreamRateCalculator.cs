@@ -157,19 +157,19 @@ public class IscpDownstreamRateCalculator : MonoBehaviour
         }
         else if (dValue < Math.Pow(1024, 2) * 10)
         {
-            return string.Format(OutputTextFormat + "Kbps", Math.Round(dValue / 1024) / 10);
+            return string.Format(OutputTextFormat + "Kbps", Math.Round(dValue / 1000) / 10);
+        }
+        else if (dValue < Math.Pow(1024, 3) * 10)
+        {
+            return string.Format(OutputTextFormat + "Mbps", Math.Round(dValue / Math.Pow(1000, 2)) / 10);
         }
         else if (dValue < Math.Pow(1024, 4) * 10)
         {
-            return string.Format(OutputTextFormat + "Mbps", Math.Round(dValue / Math.Pow(1024, 2)) / 10);
+            return string.Format(OutputTextFormat + "Gbps", Math.Round(dValue / Math.Pow(1000, 3)) / 10);
         }
         else if (dValue < Math.Pow(1024, 5) * 10)
         {
-            return string.Format(OutputTextFormat + "Gbps", Math.Round(dValue / Math.Pow(1024, 3)) / 10);
-        }
-        else if (dValue < Math.Pow(1024, 6) * 10)
-        {
-            return string.Format(OutputTextFormat + "Tbps", Math.Round(dValue / Math.Pow(1024, 4)) / 10);
+            return string.Format(OutputTextFormat + "Tbps", Math.Round(dValue / Math.Pow(1000, 4)) / 10);
         }
         else
         {
