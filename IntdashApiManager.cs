@@ -1,4 +1,6 @@
 using System;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 using intdash.Api;
@@ -9,6 +11,13 @@ using UnityEngine;
 
 public class IntdashApiManager : MonoBehaviour
 {
+    public static HttpClientHandler GenerateHttpClientHandler()
+    {
+        ServicePointManager.DefaultConnectionLimit = 256;
+        return new HttpClientHandler();
+    }
+    public HttpClient HttpClient = new HttpClient(GenerateHttpClientHandler());
+
     public Configuration Configuration { private set; get; } = new Configuration();
 
     public static IntdashApiManager Shared { private set; get; }
@@ -342,6 +351,7 @@ public class IntdashApiManager : MonoBehaviour
         Debug.Log($"OnDestroy - IntdashApiManager");
         if (Shared == this)
             Shared = null;
+        HttpClient.Dispose();
     }
 
     public delegate void EnableAPIListener(string version);
@@ -362,10 +372,11 @@ public class IntdashApiManager : MonoBehaviour
             // 認証不要
             try
             {
-                var api = new VersionsVersionApi(Configuration);
+                Debug.Log("InvokeGetVersion()");
+                var api = new VersionsVersionApi(HttpClient, Configuration);
                 var res = await api.GetVersionAsync().ConfigureAwait(false);
                 ApiVersion = res._Version;
-                Debug.Log("intdash API version: " + ApiVersion);
+                Debug.Log("OnReceiveGetVersion intdash API version: " + ApiVersion);
             }
             catch (Exception e)
             {
@@ -373,7 +384,7 @@ public class IntdashApiManager : MonoBehaviour
                 return;
             }
             // アクセストークン取得。
-            if (Type == AuthorizationType.EdgeClientSecret 
+            if (Type == AuthorizationType.EdgeClientSecret
             || Type == AuthorizationType.OAuth2ClientSecret)
             {
                 var e = await UpdateAccessTokenWithClientSecretAsync().ConfigureAwait(false);
@@ -389,12 +400,13 @@ public class IntdashApiManager : MonoBehaviour
                     {
                         try
                         {
-                            var user = await (new AuthMeApi(Configuration)).GetMeAsync().ConfigureAwait(false);
-                            Debug.Log($"User name: {user.Name}, uuid: {user.Uuid}");
+                            Debug.Log("InvokeGetMe()");
+                            var response = await (new AuthMeApi(HttpClient, Configuration)).GetMeAsync().ConfigureAwait(false);
+                            Debug.Log($"ResponseGetMe name: {response.Name}, uuid: {response.Uuid}");
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning("Failed to getMe access. " + e.Message);
+                            Debug.LogWarning("Failed to GetMe access. " + e.Message);
                         }
                     }
                     break;
@@ -402,12 +414,13 @@ public class IntdashApiManager : MonoBehaviour
                     {
                         try
                         {
-                            var edge = await (new AuthEdgesApi(Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
-                            Debug.Log($"Edge name: {edge.Name}, uuid: {edge.Uuid}");
+                            Debug.Log("InvokeGetMeAsEdge()");
+                            var response = await (new AuthEdgesApi(HttpClient, Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
+                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid}");
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning("Failed to getMe access. " + e.Message);
+                            Debug.LogWarning("Failed to GetMeAsEdge access. " + e.Message);
                         }
                     }
                     break;
@@ -415,12 +428,13 @@ public class IntdashApiManager : MonoBehaviour
                     {
                         try
                         {
-                            var edge = await (new AuthEdgesApi(Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
-                            Debug.Log($"Edge name: {edge.Name}, uuid: {edge.Uuid}");
+                            Debug.Log("InvokeGetMeAsEdge()");
+                            var response = await (new AuthEdgesApi(HttpClient, Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
+                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid}");
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning("Failed to getMe access. " + e.Message);
+                            Debug.LogWarning("Failed to GetMeAsEdge access. " + e.Message);
                         }
                     }
                     break;
@@ -524,7 +538,7 @@ public class IntdashApiManager : MonoBehaviour
     {
         try
         {
-            var api = new AuthOAuth2Api(Configuration);
+            var api = new AuthOAuth2Api(HttpClient, Configuration);
             var res = await api.IssueTokenAsync(
                 grantType: "client_credentials",
                 clientId: EdgeClientSecretInfo.ClientId,
@@ -543,14 +557,14 @@ public class IntdashApiManager : MonoBehaviour
     {
         try
         {
-            var api = new AuthOAuth2Api(Configuration);
+            var api = new AuthOAuth2Api(HttpClient, Configuration);
             var res = await api.IssueTokenAsync(
                 grantType: "refresh_token",
             refreshToken: EdgeClientSecretInfo.RefreshToken,
                 clientId: EdgeClientSecretInfo.ClientId).ConfigureAwait(false);
             ProcessAccessTokenResponse(res);
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             return e;
         }
@@ -568,7 +582,7 @@ public class IntdashApiManager : MonoBehaviour
             EdgeClientSecretInfo.RefreshTokenExpiresIn = res.RefreshTokenExpiresIn * TimeUtils.TICKS_SEC;
             EdgeClientSecretInfo.AcquiredTime = now.Ticks;
         }
-        else if(Type == AuthorizationType.OAuth2ClientSecret)
+        else if (Type == AuthorizationType.OAuth2ClientSecret)
         {
             OAuth2ClientSecretInfo.AccessToken = res.AccessToken;
             OAuth2ClientSecretInfo.RefreshToken = res.RefreshToken;
