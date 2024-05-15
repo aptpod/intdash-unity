@@ -6,6 +6,7 @@ using UnityEngine;
 using iSCP;
 using System;
 using System.Threading.Tasks;
+using System.Net.Http;
 using iSCP.Model;
 using iSCP.Transport;
 using iSCP.Helpers;
@@ -34,6 +35,7 @@ public partial class IscpConnection : MonoBehaviour
     [SerializeField] private string ConnName = "Connection1";
 
     [SerializeField] private IntdashApiManager ApiManager;
+    private HttpClient httpClient;
     private Configuration apiConfiguration;
 
     public static IscpConnection GetOrCreateSharedInstance()
@@ -95,6 +97,7 @@ public partial class IscpConnection : MonoBehaviour
         }
         if (ApiManager != null)
         {
+            this.httpClient = ApiManager.HttpClient;
             this.apiConfiguration = ApiManager.Configuration;
         }
         if (ConnectOnStart)
@@ -918,7 +921,7 @@ partial class IscpConnection : IUpstreamCallbacks
             try
             {
                 var measCreate = new intdash.Model.MeasCreate(basetime: baseTime.ToUniversalTime(), basetimeType: intdash.Model.MeasurementBaseTimeType.EdgeRtc, edgeUuid: NodeId);
-                var api = new MeasMeasurementsApi(apiConfiguration);
+                var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
                 string measId;
                 if (string.IsNullOrEmpty(ProjectUuid))
                 {
@@ -1003,7 +1006,7 @@ partial class IscpConnection : IUpstreamCallbacks
                 Debug.Log($"RequestCompleteMeasurementAsync measurementUuid: {measurementUuid}");
                 try
                 {
-                    var api = new MeasMeasurementsApi(apiConfiguration);
+                    var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
                     if (string.IsNullOrEmpty(ProjectUuid))
                     {
                         var data = await api.CompleteMeasurementAsync(measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
@@ -1036,7 +1039,7 @@ partial class IscpConnection : IUpstreamCallbacks
                         var replace = new intdash.Model.MeasurementSequenceGroupReplace(
                             expectedDataPoints: (int)expectedDataPoints,
                             finalSequenceNumber: (int)finalSequenceNumber);
-                        var api = new MeasMeasurementsApi(apiConfiguration);
+                        var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
                         if (string.IsNullOrEmpty(ProjectUuid))
                         {
                             var data = await api.UpdateMeasurementSequenceAsync(
@@ -1064,7 +1067,7 @@ partial class IscpConnection : IUpstreamCallbacks
                     Debug.Log($"RequestEndMeasurementAsync measurementUuid: {measurementUuid}");
                     try
                     {
-                        var api = new MeasMeasurementsApi(apiConfiguration);
+                        var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
                         if (string.IsNullOrEmpty(ProjectUuid))
                         {
                             var data = await api.EndMeasurementAsync(measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
