@@ -190,6 +190,7 @@ partial class IscpConnection : IConnectionCallbacks
     public void Connect()
     {
         if (Connection != null) return;
+        Debug.Log($"[{ConnName}] iSCP Connection connect.");
         // 接続情報のセットアップをします。
         this.serverUrl = ApiManager.ServerUrl;
         this.projectUuid = ApiManager.ProjectUuid;
@@ -446,7 +447,7 @@ partial class IscpConnection : IDownstreamCallbacks
                 if (downstream == null)
                 {
                     // オープン失敗。
-                    Debug.Log($"[{ConnName}] Failed to open downstream. name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
+                    Debug.LogError($"[{ConnName}] Failed to open downstream. name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
                     return;
                 }
                 // オープン成功。
