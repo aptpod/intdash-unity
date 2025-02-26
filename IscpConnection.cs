@@ -322,12 +322,8 @@ public class IscpDownstream : IEquatable<IscpDownstream>
     public readonly Guid Id;
 
     public readonly string NodeId;
-    public readonly string DataName;
-    public readonly string DataType;
+    public readonly DataFilter DataFilter;
     internal Action<DateTime, DataPointGroup> Callback;
-
-    private string compDataName;
-    private string compDataType;
 
     internal Downstream Downstream { private set; get; }
     private object streamLock = new object();
@@ -347,80 +343,9 @@ public class IscpDownstream : IEquatable<IscpDownstream>
         this.Id = Guid.NewGuid();
 
         this.NodeId = nodeId;
-        this.DataName = dataName;
-        this.DataType = dataType;
+        this.DataFilter = new DataFilter(dataName, dataType);
         this.Callback = callback;
         this.BaseTime = DateTime.Now;
-
-        this.compDataName = GetDataFilterComparison(dataName);
-        this.compDataType = GetDataFilterComparison(dataType);
-    }
-
-    public bool Contains(DataId dataId)
-    {
-        if (!string.IsNullOrEmpty(compDataName))
-        {
-            if (compDataName.Contains("+"))
-            {
-                var compLevels = compDataName.Split("/");
-                var levels = dataId.Name.Split("/");
-                for (int i = 0; i < compLevels.Length && i < levels.Length; i++)
-                {
-                    if (compLevels[i].Equals("+")) continue;
-                    if (string.IsNullOrEmpty(compLevels[i])) continue;
-                    if (!compLevels[i].Equals(levels[i]))
-                    {
-                        return false;
-                    }
-                }
-            }
-            else
-            {
-                if (!dataId.Name.StartsWith(compDataName))
-                {
-                    return false;
-                }
-            }
-        }
-        if (!string.IsNullOrEmpty(compDataType))
-        {
-            if (compDataType.Contains("+"))
-            {
-                var compLevels = compDataType.Split("/");
-                var levels = dataId.Type.Split("/");
-                for (int i = 0; i < compLevels.Length && i < levels.Length; i++)
-                {
-                    if (compLevels[i].Equals("+")) continue;
-                    if (string.IsNullOrEmpty(compLevels[i])) continue;
-                    if (!compLevels[i].Equals(levels[i]))
-                    {
-                        return false;
-                    }
-                }
-            }
-            else
-            {
-                if (!dataId.Type.StartsWith(compDataType))
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private string GetDataFilterComparison(string dataFilter)
-    {
-        if (string.IsNullOrEmpty(dataFilter))
-        {
-            return null;
-        }
-        var str = dataFilter;
-        if (str.Contains("#"))
-        {
-            str = str.Split("#")[0];
-        }
-        return str;
     }
 
     public static bool operator ==(IscpDownstream l, IscpDownstream r) => l?.Equals(r) ?? (r is null);
@@ -472,73 +397,70 @@ partial class IscpConnection : IDownstreamCallbacks
         }
     }
 
+    private class DownstreamRequest
+    {
+        public string NodeId;
+        public DataFilter DataFilter;
+        public List<IscpDownstream> Downstreams;
+
+        public DownstreamRequest(string nodeId, DataFilter dataFilter)
+        {
+            NodeId = nodeId;
+            DataFilter = dataFilter;
+            Downstreams = new List<IscpDownstream>();
+        }
+    }
+
     private void OpenDownstream()
     {
         if (registeredDownstreams.Count == 0) return;
         Debug.Log($"[{ConnName}] OpenDownstream({registeredDownstreams.Count} streams)");
-        var filters = new List<DownstreamFilter>();
+
+        var requests = new List<DownstreamRequest>();
         lock (downstreamLock)
         {
             foreach (var r in registeredDownstreams)
             {
-                var f_i = filters.FindIndex(v => v.SourceNodeId == r.NodeId);
-                DownstreamFilter filter;
-                if (f_i < 0)
+                var request = requests.Find(v => v.NodeId == r.NodeId && v.DataFilter == r.DataFilter);
+                if (request == null)
                 {
-                    filter = new DownstreamFilter(
-                        r.NodeId, // 送信元ノードのIDを指定します。
-                        new DataFilter[0]);
-                    filters.Add(filter);
-                    f_i = filters.Count - 1;
-                }
-                else
-                {
-                    filter = filters[f_i];
-                }
-                var df_i = filter.DataFilters.FindIndex(v => v.Name == r.DataName && v.Type == r.DataType);
-                if (df_i < 0)
-                {
-                    // 受信したいデータを名称と型で指定します。この例では、ワイルドカード `#` を使用して全てのデータを取得します。
-                    filter.DataFilters.Add(new DataFilter(r.DataName, r.DataType));
-                }
-                filters[f_i] = filter;
+                    request = new DownstreamRequest(r.NodeId, r.DataFilter);
+                    requests.Add(request);
+                    }
+                request.Downstreams.Add(r);
             }
         }
-        if (EnableReceivedDataPointsLog)
+        Task.Run(async () =>
         {
-            Debug.Log($"[{ConnName}] DownstreamFilter count: {filters.Count}");
-            foreach (var f in filters)
+            foreach (var r in requests)
             {
-                Debug.Log($"[{ConnName}] DownstreamFilter: nodeId: {f.SourceNodeId}");
-                foreach (var df in f.DataFilters)
-                {
-                    Debug.Log($"[{ConnName}] DownstreamFilter.DataFilter name: {df.Name}, type: {df.Type}, nodeId: {f.SourceNodeId}");
-                }
-            }
-        }
-        // ダウンストリームをオープンします。
-        Connection?.OpenDownstream(
-            downstreamFilters: filters.ToArray(),
-            omitEmptyChunk: true,
-            completion: (downstream, exception) =>
-            {
+                var filter = new DownstreamFilter(
+                    r.NodeId, // 送信元ノードのIDを指定します。
+                    new DataFilter[] { r.DataFilter }
+                );
+                Debug.Log($"[{ConnName}] OpenDownstream name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
+                // ダウンストリームをオープンします。
+                var (downstream, exception) = await Connection?.OpenDownstreamAsync(
+                    downstreamFilters: new DownstreamFilter[] { filter },
+                    omitEmptyChunk: true);
                 if (downstream == null)
                 {
                     // オープン失敗。
-                    Debug.Log($"[{ConnName}] Failed to open downstream.");
+                    Debug.Log($"[{ConnName}] Failed to open downstream. name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
                     return;
                 }
                 // オープン成功。
-                Debug.Log($"[{ConnName}] Successfully open downstream(id: {downstream.Id})");
+                Debug.Log($"[{ConnName}] Successfully open downstream(id: {downstream.Id}). name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
                 this.downstream = downstream;
                 // 受信データを取り扱うためにデリゲートを設定します。
                 downstream.Callbacks = this; // IDownstreamCallbacks
-                foreach (var r in registeredDownstreams)
+                foreach (var d in r.Downstreams)
                 {
-                    r.SetDownstream(downstream);
-                    r.BaseTime = DateTime.UtcNow;
+                    d.SetDownstream(downstream);
+                    d.BaseTime = DateTime.UtcNow;
                 }
-            });
+            }
+        });
     }
 
     /// <summary>
@@ -570,27 +492,16 @@ partial class IscpConnection : IDownstreamCallbacks
         }
         foreach (var r in this.registeredDownstreams)
         {
-            if (r.Downstream != downstream)
-            {
-                continue;
-            }
-            if (r.NodeId != message.UpstreamInfo.SourceNodeId)
-            {
-                continue;
-            }
+            if (r.Downstream != downstream) continue;
             foreach (var g in message.DataPointGroups)
             {
-                if (r.Contains(g.DataId))
-                {
-                    r.Callback?.Invoke(r.BaseTime, g);
-                }
+                r.Callback?.Invoke(r.BaseTime, g);
             }
         }
     }
 
     public void OnReceiveMetadata(Downstream downstream, DownstreamMetadata message)
     {
-        Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] - IDownstreamCallbacks");
         switch (message.Type)
         {
             case DownstreamMetadata.MetadataType.BaseTime:
@@ -602,12 +513,13 @@ partial class IscpConnection : IDownstreamCallbacks
                         r.BaseTime = dateTime;
                     }
                 }
-                Debug.Log($"[{ConnName}] OnReceiveMetadata baseTime downstream[{downstream.Id}] name: {baseTime.Name}, baseTime: {dateTime} - IDownstreamCallbacks");
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime} - IDownstreamCallbacks");
                 break;
             default: break;
         }
         foreach (var r in registeredDownstreams)
         {
+            if (r.Downstream != downstream) continue;
             r.Callbacks?.OnReceiveMetadata(r, message);
         }
     }
@@ -633,7 +545,12 @@ partial class IscpConnection : IDownstreamCallbacks
                {
                    this.downstream = newStream;
                    newStream.Callbacks = this;
-                   Debug.Log($"[{ConnName}] ReopenDownstream successfull, new downstream[{newStream.Id}]");
+                   foreach (var r in registeredDownstreams)
+                   {
+                       if (r.Downstream != downstream) continue;
+                       r.SetDownstream(newStream);
+                   }
+                   Debug.Log($"[{ConnName}] ReopenDownstream successfully, new downstream[{newStream.Id}]");
                    Task.Run(() =>
                    {
                        // 不要になったストリームを閉じる(解放する)
@@ -1156,7 +1073,7 @@ partial class IscpConnection : IUpstreamCallbacks
                         Debug.LogWarning($"[{ConnName}] Registerd upstream[{upstream.Id}] not found.");
                         return;
                     }
-                    Debug.Log($"[{ConnName}] ReopenUpstream successfull, new upstream[{newStream.Id}]");
+                    Debug.Log($"[{ConnName}] ReopenUpstream successfully, new upstream[{newStream.Id}]");
                     registeredUpstream.SetUpstream(newStream);
                     registeredUpstream.Callbacks?.OnOpen(registeredUpstream, registeredUpstream.SequenceId);
                     // 未送信のデータを持っていれば送信する
