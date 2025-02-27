@@ -175,6 +175,10 @@ partial class IscpConnection : IConnectionCallbacks
     /// </summary>
     public event ConnectionDelegate OnConnectConnection;
     /// <summary>
+    /// コネクションのオープンに失敗した際のイベントです。
+    /// </summary>
+    public event ConnectionWithErrorDelgate OnConnectFailWithErrorConnection;
+    /// <summary>
     /// コネクションがクローズされた際のイベントです。
     /// </summary>
     public event ConnectionDelegate OnDisconnectConnection;
@@ -230,6 +234,7 @@ partial class IscpConnection : IConnectionCallbacks
                 {
                     // 接続失敗。
                     Debug.LogError("Failed to connect iSCP. " + exception.Message);
+                    this.OnConnectFailWithErrorConnection?.Invoke(this, exception);
                     return;
                 }
                 // 接続成功。
