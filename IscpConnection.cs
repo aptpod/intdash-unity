@@ -446,9 +446,9 @@ partial class IscpConnection : IDownstreamCallbacks
                 );
                 Debug.Log($"[{ConnName}] OpenDownstream name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
                 // ダウンストリームをオープンします。
-                var (downstream, exception) = await Connection?.OpenDownstreamAsync(
+                var (downstream, exception) = await Connection.OpenDownstreamAsync(
                     downstreamFilters: new DownstreamFilter[] { filter },
-                    omitEmptyChunk: true);
+                    omitEmptyChunk: true).ConfigureAwait(false);
                 if (downstream == null)
                 {
                     // オープン失敗。
@@ -824,7 +824,7 @@ partial class IscpConnection : IUpstreamCallbacks
     private void OpenUpstream()
     {
         if (registeredUpstreams.Count <= 0) return;
-        Debug.Log($"[{ConnName}] OpenUpstream(nodeUuid: {NodeId ?? ""})");
+        Debug.Log($"[{ConnName}] OpenUpstream(nodeUuid: {NodeId ?? ""}, {registeredDownstreams.Count} streams)");
         if (string.IsNullOrEmpty(NodeId))
         {
             Debug.LogWarning($"[{ConnName}] Failed to open upstream. nodeUuid is null or empty.");
@@ -880,7 +880,7 @@ partial class IscpConnection : IUpstreamCallbacks
             var (upstream, exception) = await Connection.OpenUpstreamAsync(
                 sessionId: r.Persist ? sessionId : "",
                 persist: persist,
-                flushPolicy: r.FlushPolicy);
+                flushPolicy: r.FlushPolicy).ConfigureAwait(false);
             if (upstream == null)
             {
                 // オープン失敗。
@@ -902,7 +902,7 @@ partial class IscpConnection : IUpstreamCallbacks
                 priority: 20,
                 elapsedTime: 0,
                 baseTime: baseTime.ToUnixTimeTicks()); // 基準時刻はUNIX時刻で送信します。
-            var error = await Connection.SendBaseTimeAsync(metadata, persist);
+            var error = await Connection.SendBaseTimeAsync(metadata, persist).ConfigureAwait(false);
             if (error != null)
             {
                 Debug.LogWarning($"[{ConnName}] Failed to send baseTime: {error.Message}, upstreamId: {upstream.Id}, sessionId: {upstream.SessionId}");
