@@ -357,42 +357,53 @@ public class IntdashApiManager : MonoBehaviour
     public delegate void EnableAPIListener(string version);
 
     /// <summary>
-    /// API�ւ̃A�N�Z�X���L���ɂȂ�ƃR�[�������C�x���g�B
+    /// APIへのアクセスが有効になるとコールされるイベント。
     /// </summary>
     public event EnableAPIListener OnEnableApi;
 
+    public delegate void AccessTokenFetchFailedListener();
+
+    /// <summary>
+    /// アクセストークンの取得に失敗した場合にコールされるイベント。
+    /// </summary>
+    public event AccessTokenFetchFailedListener OnAccessTokenFetchFailed;
+
     private void Start()
     {
-        Debug.Log($"Start - IntdashApiManager");
+        Debug.Log($"Start(AuthorizationType: {Type}) - IntdashApiManager");
         if (isShared)
             Shared = this;
         SetMetadata();
         Task.Run(async () =>
         {
-            // �F�ؕs�v
+            // 認証不要
             try
             {
-                Debug.Log("InvokeGetVersion()");
+                Debug.Log("InvokeGetVersion() - IntdashApiManager");
                 var api = new VersionsVersionApi(HttpClient, Configuration);
                 var res = await api.GetVersionAsync().ConfigureAwait(false);
                 ApiVersion = res._Version;
-                Debug.Log("OnReceiveGetVersion intdash API version: " + ApiVersion);
+                Debug.Log($"OnReceiveGetVersion intdash API version: {ApiVersion} - IntdashApiManager");
             }
             catch (Exception e)
             {
-                Debug.LogError("Failed to request version. " + e.Message);
+                Debug.LogError($"Failed to request version. {e.Message} - IntdashApiManager");
+                OnAccessTokenFetchFailed?.Invoke();
                 return;
             }
-            // �A�N�Z�X�g�[�N���擾�B
+            // アクセストークン取得。
             if (Type == AuthorizationType.EdgeClientSecret
             || Type == AuthorizationType.OAuth2ClientSecret)
             {
+                Debug.Log("InvokeIssueTokenAsync() - IntdashApiManager");
                 var e = await UpdateAccessTokenWithClientSecretAsync().ConfigureAwait(false);
                 if (e != null)
                 {
-                    Debug.LogError("Failed to get access token. " + e.Message);
+                    Debug.LogError($"Failed to get access token. {e.Message} - IntdashApiManager");
+                    OnAccessTokenFetchFailed?.Invoke();
                     return;
                 }
+                Debug.Log($"Successfully obtained access token. - IntdashApiManager");
             }
             switch (Type)
             {
