@@ -6,7 +6,7 @@ intdashと連携したアプリケーションをUnityで開発する際に利�
 
 ## 依存関係
 
-- [iSCP Client for C#](https://github.com/aptpod/iscp-cs) (>= v0.11.0)
+- [iSCP Client for C#](https://github.com/aptpod/iscp-cs) (>= v1.1.0)
 - [intdash REST API Client for C#](https://docs.intdash.jp/manual/api-sdk-docs-site/latest/ja/rest/rest-libraries.html) (>= v2.4.0)
 
 ## インストール方法

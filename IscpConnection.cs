@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// iSCP‚ğƒCƒ“ƒ|[ƒgB
+// iSCPã‚’ã‚¤ãƒ³ãƒãƒ¼ãƒˆã€‚
 using iSCP;
 using System;
 using System.Threading.Tasks;
@@ -18,7 +18,7 @@ public partial class IscpConnection : MonoBehaviour
 {
     public static IscpConnection Shared { private set; get; }
     /// <summary>
-    /// ‚±‚Ìƒtƒ‰ƒO‚ª true ‚Ìê‡ IscpConnection.Shared ‚ÉƒZƒbƒg‚³‚êAIscpConnection.GetOrCreateSharedInstance() ‚ÅQÆ‚ª‰Â”\‚É‚È‚è‚Ü‚·B
+    /// ã“ã®ãƒ•ãƒ©ã‚°ãŒ true ã®å ´åˆ IscpConnection.Shared ã«ã‚»ãƒƒãƒˆã•ã‚Œã€IscpConnection.GetOrCreateSharedInstance() ã§å‚ç…§ãŒå¯èƒ½ã«ãªã‚Šã¾ã™ã€‚
     /// </summary>
     [SerializeField] private bool isShared = true;
 
@@ -148,7 +148,7 @@ partial class IscpConnection : IConnectionCallbacks
     [SerializeField]
     
     /// <summary>
-    /// NodeID ‚ª‹ó‚Ìó‘Ô‚Å‚ ‚Á‚Ä‚à IntdashApiManager ‚Ì AuthorizationType ‚ª ClientSecret ‚Å‚ ‚èAClientID ‚ªİ’è‚³‚ê‚Ä‚¢‚éê‡‚Í‚»‚Ìî•ñ‚ª©“®‚ÅƒZƒbƒg‚³‚ê‚Ü‚·B
+    /// NodeID ãŒç©ºã®çŠ¶æ…‹ã§ã‚ã£ã¦ã‚‚ IntdashApiManager ã® AuthorizationType ãŒ ClientSecret ã§ã‚ã‚Šã€ClientID ãŒè¨­å®šã•ã‚Œã¦ã„ã‚‹å ´åˆã¯ãã®æƒ…å ±ãŒè‡ªå‹•ã§ã‚»ãƒƒãƒˆã•ã‚Œã¾ã™ã€‚
     /// </summary>
     [IntdashLabel("Node ID (Edge UUID)")]
     public string NodeId = "";
@@ -158,44 +158,51 @@ partial class IscpConnection : IConnectionCallbacks
 
     public bool ConnectOnStart = true;
 
-    [SerializeField]
-    private uint connectionTimeout = 30;
+    /// <summary>
+    /// ã‚³ãƒã‚¯ã‚·ãƒ§ãƒ³ã®ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆæ™‚é–“ï¼ˆç§’ï¼‰ã€‚
+    /// </summary>
+    public uint ConnectionTimeout = 60;
+    /// <summary>
+    /// é€ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®å—ä¿¡ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆæ™‚é–“ï¼ˆç§’ï¼‰ã€‚
+    /// `0` ä»¥ä¸‹ã®å ´åˆã¯ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆã—ã¾ã›ã‚“ã€‚
+    /// </summary>
+    public int SendMessageResponseTimeout = 120;
 
     public Connection Connection { private set; get; }
 
     /// <summary>
-    /// Ú‘±’†‚©‚Ç‚¤‚©B
+    /// æ¥ç¶šä¸­ã‹ã©ã†ã‹ã€‚
     /// </summary>
     public bool IsConnecting => Connection != null;
 
     public delegate void ConnectionDelegate(IscpConnection connection);
     public delegate void ConnectionWithErrorDelgate(IscpConnection connection, Exception error);
     /// <summary>
-    /// ƒRƒlƒNƒVƒ‡ƒ“‚ªƒI[ƒvƒ“‚³‚ê‚½Û‚ÌƒCƒxƒ“ƒg‚Å‚·B
+    /// ã‚³ãƒã‚¯ã‚·ãƒ§ãƒ³ãŒã‚ªãƒ¼ãƒ—ãƒ³ã•ã‚ŒãŸéš›ã®ã‚¤ãƒ™ãƒ³ãƒˆã§ã™ã€‚
     /// </summary>
     public event ConnectionDelegate OnConnectConnection;
     /// <summary>
-    /// ƒRƒlƒNƒVƒ‡ƒ“‚ÌƒI[ƒvƒ“‚É¸”s‚µ‚½Û‚ÌƒCƒxƒ“ƒg‚Å‚·B
+    /// ã‚³ãƒã‚¯ã‚·ãƒ§ãƒ³ã®ã‚ªãƒ¼ãƒ—ãƒ³ã«å¤±æ•—ã—ãŸéš›ã®ã‚¤ãƒ™ãƒ³ãƒˆã§ã™ã€‚
     /// </summary>
     public event ConnectionWithErrorDelgate OnConnectFailWithErrorConnection;
     /// <summary>
-    /// ƒRƒlƒNƒVƒ‡ƒ“‚ªƒNƒ[ƒY‚³‚ê‚½Û‚ÌƒCƒxƒ“ƒg‚Å‚·B
+    /// ã‚³ãƒã‚¯ã‚·ãƒ§ãƒ³ãŒã‚¯ãƒ­ãƒ¼ã‚ºã•ã‚ŒãŸéš›ã®ã‚¤ãƒ™ãƒ³ãƒˆã§ã™ã€‚
     /// </summary>
     public event ConnectionDelegate OnDisconnectConnection;
     /// <summary>
-    /// ƒRƒlƒNƒVƒ‡ƒ“‚ªÄƒI[ƒvƒ“‚³‚ê‚½Û‚ÌƒCƒxƒ“ƒg‚Å‚·B
+    /// ã‚³ãƒã‚¯ã‚·ãƒ§ãƒ³ãŒå†ã‚ªãƒ¼ãƒ—ãƒ³ã•ã‚ŒãŸéš›ã®ã‚¤ãƒ™ãƒ³ãƒˆã§ã™ã€‚
     /// </summary>
     public event ConnectionDelegate OnReconnectConnection;
     /// <summary>
-    /// ƒRƒlƒNƒVƒ‡ƒ““à‚ÅƒGƒ‰[‚ª”­¶‚µ‚½Û‚ÌƒCƒxƒ“ƒg‚Å‚·B
+    /// ã‚³ãƒã‚¯ã‚·ãƒ§ãƒ³å†…ã§ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ãŸéš›ã®ã‚¤ãƒ™ãƒ³ãƒˆã§ã™ã€‚
     /// </summary>
     public event ConnectionWithErrorDelgate OnFailWithErrorConnection;
 
     public void Connect()
     {
         if (Connection != null) return;
-        Debug.Log($"[{ConnName}] iSCP Connection connect.");
-        // Ú‘±î•ñ‚ÌƒZƒbƒgƒAƒbƒv‚ğ‚µ‚Ü‚·B
+        Debug.Log($"[{ConnName}] iSCP Connection connect. - IscpConnection");
+        // æ¥ç¶šæƒ…å ±ã®ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—ã‚’ã—ã¾ã™ã€‚
         this.serverUrl = ApiManager.ServerUrl;
         this.projectUuid = ApiManager.ProjectUuid;
         this.accessToken = ApiManager.AccessToken;
@@ -215,34 +222,36 @@ partial class IscpConnection : IConnectionCallbacks
             enableTls = urls[0] == "https";
             address = urls[1];
         }
-        // WebSocket‚ğg‚Á‚ÄÚ‘±‚·‚é‚æ‚¤‚Éw’è‚µ‚Ü‚·B
+        // WebSocketã‚’ä½¿ã£ã¦æ¥ç¶šã™ã‚‹ã‚ˆã†ã«æŒ‡å®šã—ã¾ã™ã€‚
         ITransportConfig transportConfig = new WebSocket.Config(enableTls: enableTls);
         Connection.Connect(
             address: address,
             transportConfig: transportConfig,
             tokenSource: (token) =>
             {
-                // ƒAƒNƒZƒX—p‚Ìƒg[ƒNƒ“‚ğAPIManager‚©‚çæ“¾‚µ‚Ü‚·BÚ‘±‚É”­¶‚·‚éƒCƒxƒ“ƒg‚É‚æ‚èg—p‚³‚ê‚Ü‚·B
+                // ã‚¢ã‚¯ã‚»ã‚¹ç”¨ã®ãƒˆãƒ¼ã‚¯ãƒ³ã‚’APIManagerã‹ã‚‰å–å¾—ã—ã¾ã™ã€‚æ¥ç¶šæ™‚ã«ç™ºç”Ÿã™ã‚‹ã‚¤ãƒ™ãƒ³ãƒˆã«ã‚ˆã‚Šä½¿ç”¨ã•ã‚Œã¾ã™ã€‚
                 ApiManager.GetEnableToken(token);
             },
             nodeId: NodeId,
             projectUuid: ProjectUuid,
-            pingTimeout: connectionTimeout,
+            connectTimeout: SendMessageResponseTimeout * 1000,
+            pingTimeout: ConnectionTimeout,
+            pingInterval: ConnectionTimeout,
             completion: (con, exception) =>
             {
                 if (!(con is Connection connection))
                 {
-                    // Ú‘±¸”sB
-                    Debug.LogError("Failed to connect iSCP. " + exception.Message);
+                    // æ¥ç¶šå¤±æ•—ã€‚
+                    Debug.LogError($"Failed to connect iSCP. {exception.Message} - IscpConnection");
                     this.OnConnectFailWithErrorConnection?.Invoke(this, exception);
                     return;
                 }
-                // Ú‘±¬Œ÷B
-                Debug.Log($"iSCP Connection[{ConnName}] successfully opened!");
+                // æ¥ç¶šæˆåŠŸã€‚
+                Debug.Log($"iSCP Connection[{ConnName}] successfully opened! - IscpConnection");
                 this.Connection = connection;
                 connection.Callbacks = this; // IConnectionCallbacks
                 this.OnConnectConnection?.Invoke(this);
-                // ˆÈ~AStartUpstream‚âStartDownstream‚È‚Ç‚ªÀs‰Â”\‚É‚È‚è‚Ü‚·B
+                // ä»¥é™ã€StartUpstreamã‚„StartDownstreamãªã©ãŒå®Ÿè¡Œå¯èƒ½ã«ãªã‚Šã¾ã™ã€‚
                 this.OpenUpstream();
                 this.OpenDownstream();
             });
@@ -269,10 +278,10 @@ partial class IscpConnection : IConnectionCallbacks
             {
                 if (exception != null)
                 {
-                    Debug.LogError($"Failed to disconnect connection[{ConnName}]. {exception.Message}");
+                    Debug.LogError($"Failed to disconnect connection[{ConnName}]. {exception.Message} - IscpConnection");
                     return;
                 }
-                Debug.Log($"Success to disconnect connection[{ConnName}].");
+                Debug.Log($"Success to disconnect connection[{ConnName}]. - IscpConnection");
                 connection.Dispose();
             }
             finally
@@ -292,28 +301,28 @@ partial class IscpConnection : IConnectionCallbacks
         var exception = await connection.CloseAsync().ConfigureAwait(false);
         if (exception != null)
         {
-            Debug.LogError($"Failed to disconnect connection[{ConnName}]. {exception.Message}");
+            Debug.LogError($"Failed to disconnect connection[{ConnName}]. {exception.Message} - IscpConnection");
             return;
         }
-        Debug.Log($"Success to disconnect connection[{ConnName}].");
+        Debug.Log($"Success to disconnect connection[{ConnName}]. - IscpConnection");
         connection.Dispose();
         EndUpstream(upstreams);
     }
     public void OnDisconnect(Connection connection)
     {
-        Debug.Log($"[{ConnName}] OnDisconnect - IConnectionCallbacks");
+        Debug.Log($"[{ConnName}] OnDisconnect - IscpConnection.IConnectionCallbacks");
         this.OnDisconnectConnection?.Invoke(this);
     }
 
     public void OnFailWithError(Connection connection, Exception error)
     {
-        Debug.LogWarning($"[{ConnName}] OnFailWithError(error: {error.Message})  - IConnectionCallbacks");
+        Debug.LogWarning($"[{ConnName}] OnFailWithError(error: {error.Message})  - IscpConnection.IConnectionCallbacks");
         this.OnFailWithErrorConnection?.Invoke(this, error);
     }
 
     public void OnReconnect(Connection connection)
     {
-        Debug.Log($"[{ConnName}] OnReconnect - IConnectionCallbacks");
+        Debug.Log($"[{ConnName}] OnReconnect - IscpConnection.IConnectionCallbacks");
         this.OnReconnectConnection?.Invoke(this);
     }
 }
@@ -379,6 +388,9 @@ public class IscpDownstream : IEquatable<IscpDownstream>
 
 partial class IscpConnection : IDownstreamCallbacks
 {
+    /// <summary>
+    /// å—ä¿¡ã—ãŸãƒ‡ãƒ¼ã‚¿ãƒã‚¤ãƒ³ãƒˆã‚’ãƒ­ã‚°ã«å‡ºåŠ›ã™ã‚‹ã‹ã©ã†ã‹ã€‚
+    /// </summary>
     public bool EnableReceivedDataPointsLog = false;
     private object downstreamLock = new object();
     private Downstream downstream;
@@ -386,17 +398,17 @@ partial class IscpConnection : IDownstreamCallbacks
     private List<IscpDownstream> registeredDownstreams = new List<IscpDownstream>();
 
     /// <summary>
-    /// ƒ_ƒEƒ“ƒXƒgƒŠ[ƒ€‚ğ“o˜^‚µ‚Ü‚·B
+    /// ãƒ€ã‚¦ãƒ³ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’ç™»éŒ²ã—ã¾ã™ã€‚
     /// </summary>
-    /// <param name="nodeId">ƒm[ƒhID</param>
-    /// <param name="dataName">ƒf[ƒ^–¼</param>
-    /// <param name="dataType">ƒf[ƒ^ƒ^ƒCƒv</param>
-    /// <param name="callback">ƒf[ƒ^ƒ|ƒCƒ“ƒgóM‚ÌƒR[ƒ‹ƒoƒbƒN</param>
+    /// <param name="nodeId">ãƒãƒ¼ãƒ‰ID</param>
+    /// <param name="dataName">ãƒ‡ãƒ¼ã‚¿å</param>
+    /// <param name="dataType">ãƒ‡ãƒ¼ã‚¿ã‚¿ã‚¤ãƒ—</param>
+    /// <param name="callback">ãƒ‡ãƒ¼ã‚¿ãƒã‚¤ãƒ³ãƒˆå—ä¿¡æ™‚ã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯</param>
     public IscpDownstream RegisterDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup> callback)
     {
         lock (downstreamLock)
         {
-            Debug.Log($"[{ConnName}] Subscribe to iSCP. dataName: {dataName}, dataType: {dataType}, nodeId: {nodeId}");
+            Debug.Log($"[{ConnName}] Subscribe to iSCP. dataName: {dataName}, dataType: {dataType}, nodeId: {nodeId} - IscpConnection");
             var downstream = new IscpDownstream(nodeId, dataName, dataType, callback);
             registeredDownstreams.Add(downstream);
             return downstream;
@@ -420,7 +432,7 @@ partial class IscpConnection : IDownstreamCallbacks
     private void OpenDownstream()
     {
         if (registeredDownstreams.Count == 0) return;
-        Debug.Log($"[{ConnName}] OpenDownstream({registeredDownstreams.Count} streams)");
+        Debug.Log($"[{ConnName}] OpenDownstream({registeredDownstreams.Count} streams) - IscpConnection");
 
         var requests = new List<DownstreamRequest>();
         lock (downstreamLock)
@@ -441,24 +453,26 @@ partial class IscpConnection : IDownstreamCallbacks
             foreach (var r in requests)
             {
                 var filter = new DownstreamFilter(
-                    r.NodeId, // ‘—MŒ³ƒm[ƒh‚ÌID‚ğw’è‚µ‚Ü‚·B
+                    r.NodeId, // é€ä¿¡å…ƒãƒãƒ¼ãƒ‰ã®IDã‚’æŒ‡å®šã—ã¾ã™ã€‚
                     new DataFilter[] { r.DataFilter }
                 );
-                Debug.Log($"[{ConnName}] OpenDownstream name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
-                // ƒ_ƒEƒ“ƒXƒgƒŠ[ƒ€‚ğƒI[ƒvƒ“‚µ‚Ü‚·B
+                Debug.Log($"[{ConnName}] OpenDownstream name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId} - IscpConnection");
+                // ãƒ€ã‚¦ãƒ³ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã—ã¾ã™ã€‚
                 var (downstream, exception) = await Connection.OpenDownstreamAsync(
                     downstreamFilters: new DownstreamFilter[] { filter },
-                    omitEmptyChunk: true).ConfigureAwait(false);
+                    omitEmptyChunk: true,
+                    openTimeout: SendMessageResponseTimeout * 1000,
+                    closeTimeout: SendMessageResponseTimeout * 1000).ConfigureAwait(false);
                 if (downstream == null)
                 {
-                    // ƒI[ƒvƒ“¸”sB
-                    Debug.LogError($"[{ConnName}] Failed to open downstream. name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
+                    // ã‚ªãƒ¼ãƒ—ãƒ³å¤±æ•—ã€‚
+                    Debug.LogError($"[{ConnName}] Failed to open downstream. {exception?.Message ?? ""}, name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId} - IscpConnection");
                     return;
                 }
-                // ƒI[ƒvƒ“¬Œ÷B
-                Debug.Log($"[{ConnName}] Successfully open downstream(id: {downstream.Id}). name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId}");
+                // ã‚ªãƒ¼ãƒ—ãƒ³æˆåŠŸã€‚
+                Debug.Log($"[{ConnName}] Successfully open downstream(id: {downstream.Id}). name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId} - IscpConnection");
                 this.downstream = downstream;
-                // óMƒf[ƒ^‚ğæ‚èˆµ‚¤‚½‚ß‚ÉƒfƒŠƒQ[ƒg‚ğİ’è‚µ‚Ü‚·B
+                // å—ä¿¡ãƒ‡ãƒ¼ã‚¿ã‚’å–ã‚Šæ‰±ã†ãŸã‚ã«ãƒ‡ãƒªã‚²ãƒ¼ãƒˆã‚’è¨­å®šã—ã¾ã™ã€‚
                 downstream.Callbacks = this; // IDownstreamCallbacks
                 foreach (var d in r.Downstreams)
                 {
@@ -470,7 +484,7 @@ partial class IscpConnection : IDownstreamCallbacks
     }
 
     /// <summary>
-    /// “o˜^‚µ‚½ƒ_ƒEƒ“ƒXƒgƒŠ[ƒ€‚ğ‰ğœ‚µ‚Ü‚·B
+    /// ç™»éŒ²ã—ãŸãƒ€ã‚¦ãƒ³ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’è§£é™¤ã—ã¾ã™ã€‚
     /// </summary>
     public void UnregisterDownstream(IscpDownstream downstream)
     {
@@ -485,7 +499,7 @@ partial class IscpConnection : IDownstreamCallbacks
     {
         if (message.DataPointGroups.Length == 0) return;
         if (EnableReceivedDataPointsLog)
-            Debug.Log($"[{ConnName}] OnReceiveChunk downstream[{downstream.Id}], {message.DataPointGroups.Length} groups. - IDownstreamCallbacks");
+            Debug.Log($"[{ConnName}] OnReceiveChunk downstream[{downstream.Id}], {message.DataPointGroups.Length} groups. - IscpConnection.IDownstreamCallbacks");
         if (IscpDownstreamRateCalculator.Shared is IscpDownstreamRateCalculator calc)
         {
             foreach (var group in message.DataPointGroups)
@@ -519,7 +533,7 @@ partial class IscpConnection : IDownstreamCallbacks
                         r.BaseTime = dateTime;
                     }
                 }
-                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime} - IDownstreamCallbacks");
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime} - IscpConnection.IDownstreamCallbacks");
                 break;
             default: break;
         }
@@ -532,19 +546,19 @@ partial class IscpConnection : IDownstreamCallbacks
 
     public void OnFailWithError(Downstream downstream, Exception error)
     {
-        Debug.LogWarning($"[{ConnName}] OnFailWithError downstream[{downstream.Id}] - IDownstreamCallbacks");
+        Debug.LogWarning($"[{ConnName}] OnFailWithError downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
     }
 
     public void OnCloseWithError(Downstream downstream, Exception error)
     {
-        Debug.LogWarning($"[{ConnName}] OnCloseWithError downstream[{downstream.Id}] - IDownstreamCallbacks");
+        Debug.LogWarning($"[{ConnName}] OnCloseWithError downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
         this.Connection?.ReopenDownstream(
            downstream: downstream,
            completion: (newStream, error) =>
            {
                if (newStream == null || error != null)
                {
-                   Debug.LogWarning($"[{ConnName}] ReopenDownstream failed. {error?.Message ?? ""}");
+                   Debug.LogWarning($"[{ConnName}] ReopenDownstream failed. {error?.Message ?? ""} - IscpConnection");
                    return;
                }
                lock (downstreamLock)
@@ -556,10 +570,10 @@ partial class IscpConnection : IDownstreamCallbacks
                        if (r.Downstream != downstream) continue;
                        r.SetDownstream(newStream);
                    }
-                   Debug.Log($"[{ConnName}] ReopenDownstream successfully, new downstream[{newStream.Id}]");
+                   Debug.Log($"[{ConnName}] ReopenDownstream successfully, new downstream[{newStream.Id}] - IscpConnection");
                    Task.Run(() =>
                    {
-                       // •s—v‚É‚È‚Á‚½ƒXƒgƒŠ[ƒ€‚ğ•Â‚¶‚é(‰ğ•ú‚·‚é)
+                       // ä¸è¦ã«ãªã£ãŸã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’é–‰ã˜ã‚‹(è§£æ”¾ã™ã‚‹)
                        downstream.Close();
                    });
                }
@@ -568,7 +582,7 @@ partial class IscpConnection : IDownstreamCallbacks
 
     public void OnResume(Downstream downstream)
     {
-        Debug.Log($"[{ConnName}] OnResume downstream[{downstream.Id}] - IDownstreamCallbacks");
+        Debug.Log($"[{ConnName}] OnResume downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
     }
 }
 
@@ -772,6 +786,9 @@ public class IscpUpstream : IEquatable<IscpUpstream>
 
 partial class IscpConnection : IUpstreamCallbacks
 {
+    /// <summary>
+    /// é€ä¿¡ã—ãŸãƒ‡ãƒ¼ã‚¿ãƒã‚¤ãƒ³ãƒˆã‚’ãƒ­ã‚°ã«å‡ºåŠ›ã™ã‚‹ã‹ã©ã†ã‹ã€‚
+    /// </summary>
     public bool EnableSentDataPointsLog = false;
 
     private List<IscpUpstream> registeredUpstreams = new List<IscpUpstream>();
@@ -824,16 +841,16 @@ partial class IscpConnection : IUpstreamCallbacks
     private void OpenUpstream()
     {
         if (registeredUpstreams.Count <= 0) return;
-        Debug.Log($"[{ConnName}] OpenUpstream(nodeUuid: {NodeId ?? ""}, {registeredDownstreams.Count} streams)");
+        Debug.Log($"[{ConnName}] OpenUpstream(nodeUuid: {NodeId ?? ""}, {registeredUpstreams.Count} streams) - IscpConnection");
         if (string.IsNullOrEmpty(NodeId))
         {
-            Debug.LogWarning($"[{ConnName}] Failed to open upstream. nodeUuid is null or empty.");
+            Debug.LogWarning($"[{ConnName}] Failed to open upstream. nodeUuid is null or empty. - IscpConnection");
             return;
         }
         var baseTime = DateTime.UtcNow;
         this.EdgeRTCBaseTimeTicks = baseTime.Ticks;
-        Debug.Log($"baseTime: {baseTime.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.ffffff")}");
-        // ƒZƒbƒVƒ‡ƒ“ID‚ğ•¥‚¢o‚µ‚Ü‚·B
+        Debug.Log($"baseTime: {baseTime.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.ffffff")} - IscpConnection");
+        // ã‚»ãƒƒã‚·ãƒ§ãƒ³IDã‚’æ‰•ã„å‡ºã—ã¾ã™ã€‚
         if (!Persist)
         {
             InvokeOpenUpstream(baseTime);
@@ -856,12 +873,12 @@ partial class IscpConnection : IUpstreamCallbacks
                     var data = await api.CreateProjectMeasurementAsync(ProjectUuid, measCreate).ConfigureAwait(false);
                     measId = data.Uuid;
                 }
-                Debug.Log($"[{ConnName}] Create measurement successfully. measId: {measId}");
+                Debug.Log($"[{ConnName}] Create measurement successfully. measId: {measId} - IscpConnection");
                 InvokeOpenUpstream(baseTime, measId);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[{ConnName}] Failed to create measurement. {e.Message}");
+                Debug.LogError($"[{ConnName}] Failed to create measurement. {e.Message} - IscpConnection");
                 return;
             }
         });
@@ -875,21 +892,23 @@ partial class IscpConnection : IUpstreamCallbacks
 
         foreach (var r in registeredUpstreams)
         {
-            // Upstream‚ğƒI[ƒvƒ“‚µ‚Ü‚·B
+            // Upstreamã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã—ã¾ã™ã€‚
             var persist = r.Persist && !string.IsNullOrEmpty(sessionId);
             var (upstream, exception) = await Connection.OpenUpstreamAsync(
                 sessionId: r.Persist ? sessionId : "",
                 persist: persist,
-                flushPolicy: r.FlushPolicy).ConfigureAwait(false);
+                flushPolicy: r.FlushPolicy,
+                openTimeout: SendMessageResponseTimeout * 1000,
+                closeTimeout: SendMessageResponseTimeout * 1000).ConfigureAwait(false);
             if (upstream == null)
             {
-                // ƒI[ƒvƒ“¸”sB
-                Debug.LogError($"[{ConnName}] Failed to open upstream. {exception?.Message ?? ""}");
+                // ã‚ªãƒ¼ãƒ—ãƒ³å¤±æ•—ã€‚
+                Debug.LogError($"[{ConnName}] Failed to open upstream. {exception?.Message ?? ""} - IscpConnection");
                 continue;
             }
-            // ƒI[ƒvƒ“¬Œ÷B
-            Debug.Log($"[{ConnName}] Successfully open upstream(id: {upstream.Id})");
-            // ‘—M‚·‚éƒf[ƒ^ƒ|ƒCƒ“ƒg‚ğ•Û‘¶‚µ‚½‚¢ê‡‚âAƒAƒbƒvƒXƒgƒŠ[ƒ€‚ÌƒGƒ‰[‚ğƒnƒ“ƒhƒŠƒ“ƒO‚µ‚½‚¢ê‡‚ÍƒR[ƒ‹ƒoƒbƒN‚ğİ’è‚µ‚Ü‚·B
+            // ã‚ªãƒ¼ãƒ—ãƒ³æˆåŠŸã€‚
+            Debug.Log($"[{ConnName}] Successfully open upstream(id: {upstream.Id}) - IscpConnection");
+            // é€ä¿¡ã™ã‚‹ãƒ‡ãƒ¼ã‚¿ãƒã‚¤ãƒ³ãƒˆã‚’ä¿å­˜ã—ãŸã„å ´åˆã‚„ã€ã‚¢ãƒƒãƒ—ã‚¹ãƒˆãƒªãƒ¼ãƒ ã®ã‚¨ãƒ©ãƒ¼ã‚’ãƒãƒ³ãƒ‰ãƒªãƒ³ã‚°ã—ãŸã„å ´åˆã¯ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã‚’è¨­å®šã—ã¾ã™ã€‚
             upstream.Callbacks = this; // IUpstreamCallbacks
             this.usedUpstreams.Add(upstream);
             r.SetUpstream(upstream);
@@ -901,22 +920,26 @@ partial class IscpConnection : IUpstreamCallbacks
                 name: "edge_rtc",
                 priority: 20,
                 elapsedTime: 0,
-                baseTime: baseTime.ToUnixTimeTicks()); // Šî€‚ÍUNIX‚Å‘—M‚µ‚Ü‚·B
-            var error = await Connection.SendBaseTimeAsync(metadata, persist).ConfigureAwait(false);
+                baseTime: baseTime.ToUnixTimeTicks()); // åŸºæº–æ™‚åˆ»ã¯UNIXæ™‚åˆ»ã§é€ä¿¡ã—ã¾ã™ã€‚
+            var error = await Connection.SendBaseTimeAsync(
+                metadata, 
+                persist: persist,
+                sendTimeout: SendMessageResponseTimeout * 1000).ConfigureAwait(false);
             if (error != null)
             {
-                Debug.LogWarning($"[{ConnName}] Failed to send baseTime: {error.Message}, upstreamId: {upstream.Id}, sessionId: {upstream.SessionId}");
-                continue;
+                Debug.LogWarning($"[{ConnName}] Failed to send baseTime: {error.Message}, upstreamId: {upstream.Id}, sessionId: {upstream.SessionId} - IscpConnection");
             }
-            Debug.Log($"[{ConnName}] Success to send baseTime. upstreamId: {upstream.Id}, sessionId: {upstream.SessionId}");
-
+            else
+            {
+                Debug.Log($"[{ConnName}] Success to send baseTime. upstreamId: {upstream.Id}, sessionId: {upstream.SessionId} - IscpConnection");
+            }
             r.Callbacks?.OnOpen(r, r.SequenceId);
         }
     }
 
     private void EndUpstream(Upstream[] upstreams)
     {
-        Debug.Log($"EndUpstream({upstreams.Length} upstreams, sessionId: {this.SessionId})");
+        Debug.Log($"EndUpstream({upstreams.Length} upstreams, sessionId: {this.SessionId}) - IscpConnection");
         var measurementUuid = this.SessionId;
         var generatedSequences = this.generatedSequenceNumber;
         var receivedSequences = this.receivedSequenceNumber;
@@ -926,7 +949,7 @@ partial class IscpConnection : IUpstreamCallbacks
         {
             if (generatedSequences == receivedSequences)
             {
-                Debug.Log($"RequestCompleteMeasurementAsync measurementUuid: {measurementUuid}");
+                Debug.Log($"RequestCompleteMeasurementAsync measurementUuid: {measurementUuid} - IscpConnection");
                 try
                 {
                     var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
@@ -938,17 +961,17 @@ partial class IscpConnection : IUpstreamCallbacks
                     {
                         var data = await api.CompleteProjectMeasurementAsync(ProjectUuid, measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
                     }
-                    Debug.Log("RequestCompleteMeasurementAsync successfully.");
+                    Debug.Log("RequestCompleteMeasurementAsync successfully. - IscpConnection");
                 }
                 catch (Exception e)
                 {
-                    Debug.Log($"RequestCompleteMeasurementAsync error. {e.Message}");
+                    Debug.Log($"RequestCompleteMeasurementAsync error. {e.Message} - IscpConnection");
                     return;
                 }
             }
             else
             {
-                Debug.Log($"dropped measurement data. measurmentId: {measurementUuid}, generatedSequences: {generatedSequences}, receveidSequences: {receivedSequences}");
+                Debug.Log($"dropped measurement data. measurmentId: {measurementUuid}, generatedSequences: {generatedSequences}, receveidSequences: {receivedSequences} - IscpConnection");
                 foreach (var u in upstreams)
                 {
                     if (!u.Persist) continue;
@@ -956,7 +979,7 @@ partial class IscpConnection : IUpstreamCallbacks
                     var sequenceUuid = u.Id.ToString();
                     var expectedDataPoints = state.TotalDataPoints;
                     var finalSequenceNumber = state.LastIssuedSequenceNumber;
-                    Debug.Log($"RequestUpdateMeasurementSequenceAsync sequenceUuid: {sequenceUuid}, measurementUuid: {measurementUuid}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber}");
+                    Debug.Log($"RequestUpdateMeasurementSequenceAsync sequenceUuid: {sequenceUuid}, measurementUuid: {measurementUuid}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
                     try
                     {
                         var replace = new intdash.Model.MeasurementSequenceGroupReplace(
@@ -966,28 +989,28 @@ partial class IscpConnection : IUpstreamCallbacks
                         if (string.IsNullOrEmpty(ProjectUuid))
                         {
                             var data = await api.UpdateMeasurementSequenceAsync(
-                                                        measurementUuid: measurementUuid.ToLower(),
-                                                        sequencesUuid: sequenceUuid.ToLower(),
-                                                        measurementSequenceGroupReplace: replace).ConfigureAwait(false);
+                                measurementUuid: measurementUuid.ToLower(),
+                                sequencesUuid: sequenceUuid.ToLower(),
+                                measurementSequenceGroupReplace: replace).ConfigureAwait(false);
                         }
                         else
                         {
                             var data = await api.UpdateProjectMeasurementSequenceAsync(
-                                                        projectUuid: ProjectUuid,
-                                                        measurementUuid: measurementUuid.ToLower(),
-                                                        sequencesUuid: sequenceUuid.ToLower(),
-                                                        measurementSequenceGroupReplace: replace).ConfigureAwait(false);
+                                projectUuid: ProjectUuid,
+                                measurementUuid: measurementUuid.ToLower(),
+                                sequencesUuid: sequenceUuid.ToLower(),
+                                measurementSequenceGroupReplace: replace).ConfigureAwait(false);
                         }
-                        Debug.Log($"RequestUpdateMeasurementSequenceAsync successfully. streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber}");
+                        Debug.Log($"RequestUpdateMeasurementSequenceAsync successfully. streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
                     }
                     catch (Exception e)
                     {
-                        Debug.Log($"RequestUpdateMeasurementSequenceAsync error. {e.Message}, streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber}");
+                        Debug.Log($"RequestUpdateMeasurementSequenceAsync error. {e.Message}, streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
                         return;
                     }
                 }
                 {
-                    Debug.Log($"RequestEndMeasurementAsync measurementUuid: {measurementUuid}");
+                    Debug.Log($"RequestEndMeasurementAsync measurementUuid: {measurementUuid} - IscpConnection");
                     try
                     {
                         var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
@@ -999,11 +1022,11 @@ partial class IscpConnection : IUpstreamCallbacks
                         {
                             var data = await api.EndProjectMeasurementAsync(projectUuid: ProjectUuid, measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
                         }
-                        Debug.Log("RequestEndMeasurementAsync successfully.");
+                        Debug.Log("RequestEndMeasurementAsync successfully. - IscpConnection");
                     }
                     catch (Exception e)
                     {
-                        Debug.Log($"RequestEndMeasurementAsync error. {e.Message}");
+                        Debug.Log($"RequestEndMeasurementAsync error. {e.Message} - IscpConnection");
                     }
                 }
             }
@@ -1013,7 +1036,7 @@ partial class IscpConnection : IUpstreamCallbacks
     public void OnGenerateChunk(Upstream upstream, UpstreamChunk message)
     {
         if (EnableSentDataPointsLog)
-            Debug.Log($"[{ConnName}] OnGenerateChunk upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, DataPointCount: {message.DataPointCount}, PayloadSize: {message.PayloadSize} - IUpstreamCallbacks");
+            Debug.Log($"[{ConnName}] OnGenerateChunk upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, DataPointCount: {message.DataPointCount}, PayloadSize: {message.PayloadSize} - IscpConnection.IUpstreamCallbacks");
         generatedSequenceNumber += 1;
         lock (upstreamLock)
         {
@@ -1030,7 +1053,7 @@ partial class IscpConnection : IUpstreamCallbacks
     public void OnReceiveAck(Upstream upstream, UpstreamChunkAck message)
     {
         if (EnableSentDataPointsLog)
-            Debug.Log($"[{ConnName}] OnReceiveAck upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, ResultCode: {message.ResultCode}, ResultString: {message.ResultString} - IUpstreamCallbacks");
+            Debug.Log($"[{ConnName}] OnReceiveAck upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, ResultCode: {message.ResultCode}, ResultString: {message.ResultString} - IscpConnection.IUpstreamCallbacks");
         receivedSequenceNumber += 1;
         lock (upstreamLock)
         {
@@ -1046,19 +1069,19 @@ partial class IscpConnection : IUpstreamCallbacks
 
     public void OnFailWithError(Upstream upstream, Exception error)
     {
-        Debug.LogWarning($"[{ConnName}] OnFailWithError upstream[{upstream.Id}], error: {error} - IUpstreamCallbacks");
+        Debug.LogWarning($"[{ConnName}] OnFailWithError upstream[{upstream.Id}], error: {error} - IscpConnection.IUpstreamCallbacks");
     }
 
     public void OnCloseWithError(Upstream upstream, Exception error)
     {
-        Debug.LogWarning($"[{ConnName}] OnCloseWithError upstream[{upstream.Id}], error: {error} - IUpstreamCallbacks");
+        Debug.LogWarning($"[{ConnName}] OnCloseWithError upstream[{upstream.Id}], error: {error} - IscpConnection.IUpstreamCallbacks");
         this.Connection?.ReopenUpstream(
             upstream: upstream,
             completion: (newStream, error) =>
             {
                 if (newStream == null || error != null)
                 {
-                    Debug.LogWarning($"[{ConnName}] ReopenUpstream failed. {error?.Message ?? ""}");
+                    Debug.LogWarning($"[{ConnName}] ReopenUpstream failed. {error?.Message ?? ""} - IscpConnection");
                     return;
                 }
                 lock (upstreamLock)
@@ -1076,13 +1099,13 @@ partial class IscpConnection : IUpstreamCallbacks
                     }
                     if (registeredUpstream == null)
                     {
-                        Debug.LogWarning($"[{ConnName}] Registerd upstream[{upstream.Id}] not found.");
+                        Debug.LogWarning($"[{ConnName}] Registerd upstream[{upstream.Id}] not found. - IscpConnection");
                         return;
                     }
-                    Debug.Log($"[{ConnName}] ReopenUpstream successfully, new upstream[{newStream.Id}]");
+                    Debug.Log($"[{ConnName}] ReopenUpstream successfully, new upstream[{newStream.Id}] - IscpConnection");
                     registeredUpstream.SetUpstream(newStream);
                     registeredUpstream.Callbacks?.OnOpen(registeredUpstream, registeredUpstream.SequenceId);
-                    // –¢‘—M‚Ìƒf[ƒ^‚ğ‚Á‚Ä‚¢‚ê‚Î‘—M‚·‚é
+                    // æœªé€ä¿¡ã®ãƒ‡ãƒ¼ã‚¿ã‚’æŒã£ã¦ã„ã‚Œã°é€ä¿¡ã™ã‚‹
                     if (FailedSendDataPoints[upstream.Id] is List<DataPointGroup> groups)
                     {
                         registeredUpstream.SendDataPoints(groups.ToArray());
@@ -1090,7 +1113,7 @@ partial class IscpConnection : IUpstreamCallbacks
                     }
                     Task.Run(() =>
                     {
-                        // •s—v‚É‚È‚Á‚½ƒXƒgƒŠ[ƒ€‚ğ•Â‚¶‚é(‰ğ•ú‚·‚é)
+                        // ä¸è¦ã«ãªã£ãŸã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’é–‰ã˜ã‚‹(è§£æ”¾ã™ã‚‹)
                         upstream.Close();
                         this.usedUpstreams.Remove(upstream);
                     });
@@ -1100,6 +1123,6 @@ partial class IscpConnection : IUpstreamCallbacks
 
     public void OnResume(Upstream upstream)
     {
-        Debug.Log($"[{ConnName}] OnResume upstream[{upstream.Id}] - IUpstreamCallbacks");
+        Debug.Log($"[{ConnName}] OnResume upstream[{upstream.Id}] - IscpConnection.IUpstreamCallbacks");
     }
 }
