@@ -65,7 +65,7 @@ public class IntdashApiManager : MonoBehaviour
     public class APITokenAuthorizationInfo
     {
         /// <summary>
-        /// ƒ†[ƒU[‚ÌAPIƒg[ƒNƒ“iAPIƒg[ƒNƒ“‚ÍMy Page‚Åì¬‚Å‚«‚Ü‚·j
+        /// ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®APIãƒˆãƒ¼ã‚¯ãƒ³ï¼ˆAPIãƒˆãƒ¼ã‚¯ãƒ³ã¯My Pageã§ä½œæˆã§ãã¾ã™ï¼‰
         /// </summary>
         public string ApiToken = "";
     }
@@ -88,42 +88,42 @@ public class IntdashApiManager : MonoBehaviour
     {
         [IntdashLabel("Client ID (Edge UUID)")]
         /// <summary>
-        /// ƒNƒ‰ƒCƒAƒ“ƒgIDB
+        /// ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆIDã€‚
         /// </summary>
         public string ClientId = "";
 
         /// <summary>
-        /// ƒGƒbƒW‚Ìì¬‚É”­s‚³‚ê‚éƒNƒ‰ƒCƒAƒ“ƒgƒV[ƒNƒŒƒbƒgB
+        /// ã‚¨ãƒƒã‚¸ã®ä½œæˆæ™‚ã«ç™ºè¡Œã•ã‚Œã‚‹ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã‚·ãƒ¼ã‚¯ãƒ¬ãƒƒãƒˆã€‚
         /// </summary>
         public string ClientSecret = "";
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“B
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã€‚
         /// </summary>
         public string AccessToken { get; set; }
 
         /// <summary>
-        /// ƒŠƒtƒŒƒbƒVƒ…ƒg[ƒNƒ“B
+        /// ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ãƒˆãƒ¼ã‚¯ãƒ³ã€‚
         /// </summary>
         public string RefreshToken { get; set; } = "";
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“‚Ìc‚è•b”B
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã®æ®‹ã‚Šç§’æ•°ã€‚
         /// </summary>
         public long? ExpiresIn { get; set; }
 
         /// <summary>
-        /// ƒŠƒtƒŒƒbƒVƒ…ƒg[ƒNƒ“‚Ìc‚è•b”B
+        /// ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ãƒˆãƒ¼ã‚¯ãƒ³ã®æ®‹ã‚Šç§’æ•°ã€‚
         /// </summary>
         public long? RefreshTokenExpiresIn { get; set; }
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“‚Ìæ“¾“úB
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã®å–å¾—æ—¥æ™‚ã€‚
         /// </summary>
         public long? AcquiredTime { get; set; }
 
         /// <summary>
-        /// ƒŠƒtƒŒƒbƒVƒ…ƒg[ƒNƒ“‚ªXV‰Â”\‚©B
+        /// ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ãƒˆãƒ¼ã‚¯ãƒ³ãŒæ›´æ–°å¯èƒ½ã‹ã€‚
         /// </summary>
         public bool IsRefreshTokenRefreshable
         {
@@ -134,13 +134,13 @@ public class IntdashApiManager : MonoBehaviour
                     return false;
                 }
 
-                // c‚è•b”
+                // æ®‹ã‚Šç§’æ•°
                 if (!(this.RefreshTokenExpiresIn is long expiresIn))
                 {
                     return false;
                 }
 
-                // Œo‰ß•b”‚Æ”äŠr
+                // çµŒéç§’æ•°ã¨æ¯”è¼ƒ
                 var now = DateTime.UtcNow.Ticks;
                 var elapsedTime = now - acquiredTime;
                 return elapsedTime < expiresIn;
@@ -148,7 +148,7 @@ public class IntdashApiManager : MonoBehaviour
         }
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“‚ªXV‰Â”\‚©‚Ç‚¤‚©B
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ãŒæ›´æ–°å¯èƒ½ã‹ã©ã†ã‹ã€‚
         /// </summary>
         public bool IsAccessTokenRefreshable
         {
@@ -159,13 +159,13 @@ public class IntdashApiManager : MonoBehaviour
                     return false;
                 }
 
-                // c‚è•b”
+                // æ®‹ã‚Šç§’æ•°
                 if (!(this.ExpiresIn is long expiresIn))
                 {
                     return false;
                 }
 
-                // Œo‰ß•b”‚Æ”äŠr
+                // çµŒéç§’æ•°ã¨æ¯”è¼ƒ
                 var now = DateTime.UtcNow.Ticks;
                 var elapsedTime = now - acquiredTime;
                 return elapsedTime < expiresIn;
@@ -191,42 +191,42 @@ public class IntdashApiManager : MonoBehaviour
     {
         [IntdashLabel("Client ID")]
         /// <summary>
-        /// OAuth2”F‰Â—p‚ÌƒNƒ‰ƒCƒAƒ“ƒgIDB
+        /// OAuth2èªå¯ç”¨ã®ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆIDã€‚
         /// </summary>
         public string ClientId = "";
 
         /// <summary>
-        /// ƒNƒ‰ƒCƒAƒ“ƒgIDB
+        /// ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã‚·ãƒ¼ã‚¯ãƒ¬ãƒƒãƒˆã€‚
         /// </summary>
         public string ClientSecret = "";
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“B
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã€‚
         /// </summary>
         public string AccessToken { get; set; }
 
         /// <summary>
-        /// ƒŠƒtƒŒƒbƒVƒ…ƒg[ƒNƒ“B
+        /// ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ãƒˆãƒ¼ã‚¯ãƒ³ã€‚
         /// </summary>
         public string RefreshToken { get; set; } = "";
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“‚Ìc‚è•b”B
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã®æ®‹ã‚Šç§’æ•°ã€‚
         /// </summary>
         public long? ExpiresIn { get; set; }
 
         /// <summary>
-        /// ƒŠƒtƒŒƒbƒVƒ…ƒg[ƒNƒ“‚Ìc‚è•b”B
+        /// ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ãƒˆãƒ¼ã‚¯ãƒ³ã®æ®‹ã‚Šç§’æ•°ã€‚
         /// </summary>
         public long? RefreshTokenExpiresIn { get; set; }
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“‚Ìæ“¾“úB
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã®å–å¾—æ—¥æ™‚ã€‚
         /// </summary>
         public long? AcquiredTime { get; set; }
 
         /// <summary>
-        /// ƒŠƒtƒŒƒbƒVƒ…ƒg[ƒNƒ“‚ªXV‰Â”\‚©B
+        /// ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ãƒˆãƒ¼ã‚¯ãƒ³ãŒæ›´æ–°å¯èƒ½ã‹ã€‚
         /// </summary>
         public bool IsRefreshTokenRefreshable
         {
@@ -237,13 +237,13 @@ public class IntdashApiManager : MonoBehaviour
                     return false;
                 }
 
-                // c‚è•b”
+                // æ®‹ã‚Šç§’æ•°
                 if (!(this.RefreshTokenExpiresIn is long expiresIn))
                 {
                     return false;
                 }
 
-                // Œo‰ß•b”‚Æ”äŠr
+                // çµŒéç§’æ•°ã¨æ¯”è¼ƒ
                 var now = DateTime.UtcNow.Ticks;
                 var elapsedTime = now - acquiredTime;
                 return elapsedTime < expiresIn;
@@ -251,7 +251,7 @@ public class IntdashApiManager : MonoBehaviour
         }
 
         /// <summary>
-        /// ƒAƒNƒZƒXƒg[ƒNƒ“‚ªXV‰Â”\‚©‚Ç‚¤‚©B
+        /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ãŒæ›´æ–°å¯èƒ½ã‹ã©ã†ã‹ã€‚
         /// </summary>
         public bool IsAccessTokenRefreshable
         {
@@ -262,13 +262,13 @@ public class IntdashApiManager : MonoBehaviour
                     return false;
                 }
 
-                // c‚è•b”
+                // æ®‹ã‚Šç§’æ•°
                 if (!(this.ExpiresIn is long expiresIn))
                 {
                     return false;
                 }
 
-                // Œo‰ß•b”‚Æ”äŠr
+                // çµŒéç§’æ•°ã¨æ¯”è¼ƒ
                 var now = DateTime.UtcNow.Ticks;
                 var elapsedTime = now - acquiredTime;
                 return elapsedTime < expiresIn;
@@ -290,7 +290,7 @@ public class IntdashApiManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ƒAƒNƒZƒXƒg[ƒNƒ“B
+    /// ã‚¢ã‚¯ã‚»ã‚¹ãƒˆãƒ¼ã‚¯ãƒ³ã€‚
     /// </summary>
     public string AccessToken
     {
@@ -311,18 +311,18 @@ public class IntdashApiManager : MonoBehaviour
 
     [IntdashLabel("Project UUID")]
     /// <summary>
-    /// ƒvƒƒWƒFƒNƒgIDB
+    /// ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆIDã€‚
     /// </summary>
     public string ProjectUuid = "";
 
     /// <summary>
-    /// intdashƒT[ƒo[‚ÌAPIƒo[ƒWƒ‡ƒ“B
-    /// ³‚µ‚­AƒAƒNƒZƒXî•ñ‚ªİ’è‚³‚ê‚Ä‚¢‚ê‚Î Start() Œã‚ÉƒZƒbƒg‚³‚ê‚Ü‚·B
+    /// intdashã‚µãƒ¼ãƒãƒ¼ã®APIãƒãƒ¼ã‚¸ãƒ§ãƒ³ã€‚
+    /// æ­£ã—ãã€ã‚¢ã‚¯ã‚»ã‚¹æƒ…å ±ãŒè¨­å®šã•ã‚Œã¦ã„ã‚Œã° Start() å¾Œã«ã‚»ãƒƒãƒˆã•ã‚Œã¾ã™ã€‚
     /// </summary>
     public string ApiVersion;
 
     /// <summary>
-    /// API‚Ö‚ÌƒAƒNƒZƒX‚ª—LŒø‚©‚Ç‚¤‚©B
+    /// APIã¸ã®ã‚¢ã‚¯ã‚»ã‚¹ãŒæœ‰åŠ¹ã‹ã©ã†ã‹ã€‚
     /// </summary>
     public bool IsEnableApi => !string.IsNullOrEmpty(AccessToken);
 
@@ -400,13 +400,13 @@ public class IntdashApiManager : MonoBehaviour
                     {
                         try
                         {
-                            Debug.Log("InvokeGetMe()");
+                            Debug.Log("InvokeGetMe() - IntdashApiManager");
                             var response = await (new AuthMeApi(HttpClient, Configuration)).GetMeAsync().ConfigureAwait(false);
-                            Debug.Log($"ResponseGetMe name: {response.Name}, uuid: {response.Uuid}");
+                            Debug.Log($"ResponseGetMe name: {response.Name}, uuid: {response.Uuid} - IntdashApiManager");
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning("Failed to GetMe access. " + e.Message);
+                            Debug.LogWarning($"Failed to GetMe access. {e.Message} - IntdashApiManager");
                         }
                     }
                     break;
@@ -414,13 +414,13 @@ public class IntdashApiManager : MonoBehaviour
                     {
                         try
                         {
-                            Debug.Log("InvokeGetMeAsEdge()");
+                            Debug.Log("InvokeGetMeAsEdge() - IntdashApiManager");
                             var response = await (new AuthEdgesApi(HttpClient, Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
-                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid}");
+                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid} - IntdashApiManager");
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning("Failed to GetMeAsEdge access. " + e.Message);
+                            Debug.LogWarning($"Failed to GetMeAsEdge access. {e.Message} - IntdashApiManager");
                         }
                     }
                     break;
@@ -428,13 +428,13 @@ public class IntdashApiManager : MonoBehaviour
                     {
                         try
                         {
-                            Debug.Log("InvokeGetMeAsEdge()");
+                            Debug.Log("InvokeGetMeAsEdge() - IntdashApiManager");
                             var response = await (new AuthEdgesApi(HttpClient, Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
-                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid}");
+                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid} - IntdashApiManager");
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning("Failed to GetMeAsEdge access. " + e.Message);
+                            Debug.LogWarning($"Failed to GetMeAsEdge access. {e.Message} - IntdashApiManager");
                         }
                     }
                     break;
@@ -444,8 +444,8 @@ public class IntdashApiManager : MonoBehaviour
     }
 
     /// <summary>
-    /// —LŒø‚Èƒg[ƒNƒ“‚ğæ“¾‚µ‚Ü‚·B
-    /// <para>ƒg[ƒNƒ“‚Ì—LŒøŠúŒÀ‚ªØ‚ê‚Ä‚¢‚ê‚Îƒg[ƒNƒ“‚ÌƒŠƒtƒŒƒbƒVƒ…‚ğs‚¢‚Ü‚·</para>
+    /// æœ‰åŠ¹ãªãƒˆãƒ¼ã‚¯ãƒ³ã‚’å–å¾—ã—ã¾ã™ã€‚
+    /// <para>ãƒˆãƒ¼ã‚¯ãƒ³ã®æœ‰åŠ¹æœŸé™ãŒåˆ‡ã‚Œã¦ã„ã‚Œã°ãƒˆãƒ¼ã‚¯ãƒ³ã®ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ã‚’è¡Œã„ã¾ã™</para>
     /// </summary>
     public void GetEnableToken(Action<string> completion)
     {
@@ -481,8 +481,8 @@ public class IntdashApiManager : MonoBehaviour
     }
 
     /// <summary>
-    /// —LŒø‚Èƒg[ƒNƒ“‚ğæ“¾‚µ‚Ü‚·B
-    /// <para>ƒg[ƒNƒ“‚Ì—LŒøŠúŒÀ‚ªØ‚ê‚Ä‚¢‚ê‚Îƒg[ƒNƒ“‚ÌƒŠƒtƒŒƒbƒVƒ…‚ğs‚¢‚Ü‚·</para>
+    /// æœ‰åŠ¹ãªãƒˆãƒ¼ã‚¯ãƒ³ã‚’å–å¾—ã—ã¾ã™ã€‚
+    /// <para>ãƒˆãƒ¼ã‚¯ãƒ³ã®æœ‰åŠ¹æœŸé™ãŒåˆ‡ã‚Œã¦ã„ã‚Œã°ãƒˆãƒ¼ã‚¯ãƒ³ã®ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ã‚’è¡Œã„ã¾ã™</para>
     /// </summary>
     public async Task<string> GetEnableTokenAsync()
     {
@@ -541,8 +541,8 @@ public class IntdashApiManager : MonoBehaviour
             var api = new AuthOAuth2Api(HttpClient, Configuration);
             var res = await api.IssueTokenAsync(
                 grantType: "client_credentials",
-                clientId: EdgeClientSecretInfo.ClientId,
-                clientSecret: EdgeClientSecretInfo.ClientSecret,
+                clientId: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientId : OAuth2ClientSecretInfo.ClientId,
+                clientSecret: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientSecret : OAuth2ClientSecretInfo.ClientSecret,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             ProcessAccessTokenResponse(res);
         }
@@ -560,8 +560,8 @@ public class IntdashApiManager : MonoBehaviour
             var api = new AuthOAuth2Api(HttpClient, Configuration);
             var res = await api.IssueTokenAsync(
                 grantType: "refresh_token",
-            refreshToken: EdgeClientSecretInfo.RefreshToken,
-                clientId: EdgeClientSecretInfo.ClientId).ConfigureAwait(false);
+            refreshToken: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.RefreshToken : OAuth2ClientSecretInfo.RefreshToken,
+                clientId: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientId : OAuth2ClientSecretInfo.RefreshToken).ConfigureAwait(false);
             ProcessAccessTokenResponse(res);
         }
         catch (Exception e)
