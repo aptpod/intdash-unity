@@ -146,7 +146,7 @@ partial class IscpConnection : IConnectionCallbacks
     public string AccessToken => accessToken;
 
     [SerializeField]
-    
+
     /// <summary>
     /// NodeID が空の状態であっても IntdashApiManager の AuthorizationType が ClientSecret であり、ClientID が設定されている場合はその情報が自動でセットされます。
     /// </summary>
@@ -338,7 +338,7 @@ public class IscpDownstream : IEquatable<IscpDownstream>
 
     public readonly string NodeId;
     public readonly DataFilter DataFilter;
-    internal Action<DateTime, DataPointGroup> Callback;
+    internal Action<DateTime, DataPointGroup[]> Callback;
 
     internal Downstream Downstream { private set; get; }
     private object streamLock = new object();
@@ -353,7 +353,7 @@ public class IscpDownstream : IEquatable<IscpDownstream>
 
     public DateTime BaseTime { internal set; get; }
 
-    public IscpDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup> callback)
+    public IscpDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup[]> callback)
     {
         this.Id = Guid.NewGuid();
 
@@ -404,7 +404,7 @@ partial class IscpConnection : IDownstreamCallbacks
     /// <param name="dataName">データ名</param>
     /// <param name="dataType">データタイプ</param>
     /// <param name="callback">データポイント受信時のコールバック</param>
-    public IscpDownstream RegisterDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup> callback)
+    public IscpDownstream RegisterDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup[]> callback)
     {
         lock (downstreamLock)
         {
@@ -444,7 +444,7 @@ partial class IscpConnection : IDownstreamCallbacks
                 {
                     request = new DownstreamRequest(r.NodeId, r.DataFilter);
                     requests.Add(request);
-                    }
+                }
                 request.Downstreams.Add(r);
             }
         }
@@ -513,10 +513,7 @@ partial class IscpConnection : IDownstreamCallbacks
         foreach (var r in this.registeredDownstreams)
         {
             if (r.Downstream != downstream) continue;
-            foreach (var g in message.DataPointGroups)
-            {
-                r.Callback?.Invoke(r.BaseTime, g);
-            }
+            r.Callback?.Invoke(r.BaseTime, message.DataPointGroups);
         }
     }
 
@@ -529,7 +526,8 @@ partial class IscpConnection : IDownstreamCallbacks
                 var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks().ToLocalTime();
                 foreach (var r in registeredDownstreams)
                 {
-                    if (downstream == r.Downstream) {
+                    if (downstream == r.Downstream)
+                    {
                         r.BaseTime = dateTime;
                     }
                 }
@@ -606,7 +604,7 @@ public class IscpUpstream : IEquatable<IscpUpstream>
 
     public void SetUpstream(Upstream upstream)
     {
-        lock(streamLock)
+        lock (streamLock)
             Upstream = upstream;
         if (upstream != null)
         {
@@ -922,7 +920,7 @@ partial class IscpConnection : IUpstreamCallbacks
                 elapsedTime: 0,
                 baseTime: baseTime.ToUnixTimeTicks()); // 基準時刻はUNIX時刻で送信します。
             var error = await Connection.SendBaseTimeAsync(
-                metadata, 
+                metadata,
                 persist: persist,
                 sendTimeout: SendMessageResponseTimeout * 1000).ConfigureAwait(false);
             if (error != null)
