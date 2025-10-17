@@ -14,7 +14,12 @@ public class IntdashApiManager : MonoBehaviour
     public static HttpClientHandler GenerateHttpClientHandler()
     {
         ServicePointManager.DefaultConnectionLimit = 256;
-        return new HttpClientHandler();
+        var handler = new HttpClientHandler();
+        if (handler.SupportsAutomaticDecompression)
+        {
+            handler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+        }
+        return handler;
     }
     public HttpClient HttpClient = new HttpClient(GenerateHttpClientHandler());
 
