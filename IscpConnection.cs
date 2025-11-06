@@ -21,6 +21,15 @@ public partial class IscpConnection : MonoBehaviour
     /// このフラグが true の場合 IscpConnection.Shared にセットされ、IscpConnection.GetOrCreateSharedInstance() で参照が可能になります。
     /// </summary>
     [SerializeField] private bool isShared = true;
+    /// <summary>
+    /// このコネクションを共有インスタンスとして設定するかどうか。
+    /// 
+    /// Awake より前にのみ実行可能です。
+    /// </summary>
+    public void SetSharedFlag(bool shared)
+    {
+        isShared = shared;
+    }
 
     public enum ConnectionLogLevel
     {
