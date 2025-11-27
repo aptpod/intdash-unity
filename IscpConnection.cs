@@ -232,10 +232,18 @@ partial class IscpConnection : IConnectionCallbacks
             address = urls[1];
         }
         // WebSocketを使って接続するように指定します。
-        ITransportConfig transportConfig = new WebSocket.Config(enableTls: enableTls);
+        IConnector connector;
+        {
+            var wsConnector = new WebSocketConnector(enableTls: enableTls);
+            if (ApiManager.ClientAuthCertificate != null)
+            {
+                wsConnector.ClientAuthCertificate = ApiManager.ClientAuthCertificate;
+            }
+            connector = wsConnector;
+        }
         Connection.Connect(
             address: address,
-            transportConfig: transportConfig,
+            connector: connector,
             tokenSource: (token) =>
             {
                 // アクセス用のトークンをAPIManagerから取得します。接続時に発生するイベントにより使用されます。

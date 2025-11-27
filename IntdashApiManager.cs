@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 using intdash.Api;
@@ -47,6 +49,53 @@ public class IntdashApiManager : MonoBehaviour
             _ServerPath = value;
             SetMetadata();
         }
+    }
+
+    [SerializeField] private string _ClientAuthPkcs12Path = "";
+    public string ClientAuthPkcs12Path
+    {
+        get => _ClientAuthPkcs12Path;
+        set
+        {
+            _ClientAuthPkcs12Path = value;
+            SetClientAuthCertificate(_ClientAuthPkcs12Path, ClientAuthPkcs12Password);
+        }
+    }
+
+    [SerializeField] private string _ClientAuthPkcs12Password = "";
+    private string ClientAuthPkcs12Password
+    {
+        get => _ClientAuthPkcs12Password;
+        set
+        {
+            _ClientAuthPkcs12Password = value;
+            SetClientAuthCertificate(ClientAuthPkcs12Path, ClientAuthPkcs12Password);
+        }
+    }
+
+    private X509Certificate _ClientAuthCertificate = null;
+    public X509Certificate ClientAuthCertificate
+    {
+        get => _ClientAuthCertificate;
+        set
+        {
+            _ClientAuthCertificate = value;
+            ResetHttpClient();
+        }
+    }
+
+    private void ResetHttpClient()
+    {
+        var handler = GenerateHttpClientHandler();
+        var oldClient = HttpClient;
+        // ClientAuthCertificate
+        if (ClientAuthCertificate != null)
+        {
+            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+            handler.ClientCertificates.Add(ClientAuthCertificate);
+        }
+        HttpClient = new HttpClient(handler);
+        oldClient?.Dispose();
     }
 
     /// <summary>
@@ -379,6 +428,7 @@ public class IntdashApiManager : MonoBehaviour
         if (isShared)
             Shared = this;
         SetMetadata();
+        SetClientAuthCertificate(ClientAuthPkcs12Path, ClientAuthPkcs12Password);
         Task.Run(async () =>
         {
             // 認証不要
@@ -632,6 +682,31 @@ public class IntdashApiManager : MonoBehaviour
                     Configuration.AccessToken = OAuth2ClientSecretInfo.AccessToken;
                 }
                 break;
+        }
+    }
+
+    private void SetClientAuthCertificate(string pkcs12Path, string password)
+    {
+        try
+        {
+            var path = pkcs12Path;
+            if (!File.Exists(path))
+            {
+#if UNITY_STANDALONE || UNITY_EDITOR
+                return;
+#else
+                path = Path.Combine(Application.persistentDataPath, path);
+                if (!File.Exists(path)) return;
+#endif
+            }
+            Debug.Log("Set client auth certificate from PKCS12 file.");
+            var cert = new X509Certificate2(path, password,
+                X509KeyStorageFlags.DefaultKeySet);
+            ClientAuthCertificate = cert;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Failed to set client auth certificate. "  + e.Message);
         }
     }
 }
