@@ -9,10 +9,10 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using iSCP.Model;
 using iSCP.Transport;
-using iSCP.Helpers;
 
 using intdash.Api;
 using intdash.Client;
+using System.Threading;
 
 public partial class IscpConnection : MonoBehaviour
 {
@@ -61,6 +61,7 @@ public partial class IscpConnection : MonoBehaviour
     }
 
     private bool awaked = false;
+    private bool isApplicationQuitting = false;
 
     private void Awake()
     {
@@ -135,13 +136,38 @@ public partial class IscpConnection : MonoBehaviour
         if (Shared == this)
             Shared = null;
         lock (upstreamLock)
+        {
+            foreach (var r in registeredUpstreams) r.SetUpstream(null);
             this.registeredUpstreams.Clear();
+        }
         lock (downstreamLock)
+        {
+            foreach (var r in registeredDownstreams) r.SetDownstream(null);
             this.registeredDownstreams.Clear();
-        this.Close();
+        }
         if (awaked)
         {
             IscpLog.Shared.OnOutputLog -= OnOutputLog;
+        }
+        if (!isApplicationQuitting)
+        {
+            Close();
+        }
+
+    }
+
+    private async void OnApplicationQuit()
+    {
+        Debug.Log($"[{ConnName}] OnApplicationQuit - IscpConnection");
+        isApplicationQuitting  = true;
+
+        try
+        {
+            await CloseAsync().ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[{ConnName}] CloseAsync failed on application quit. {e.Message} - IscpConnection");
         }
     }
 }
@@ -183,6 +209,9 @@ partial class IscpConnection : IConnectionCallbacks
     /// 接続中かどうか。
     /// </summary>
     public bool IsConnecting => Connection != null;
+
+    private int isClosing = 0;
+    internal bool IsClosing => Interlocked.CompareExchange(ref isClosing, 0, 0) == 1;
 
     public delegate void ConnectionDelegate(IscpConnection connection);
     public delegate void ConnectionWithErrorDelgate(IscpConnection connection, Exception error);
@@ -277,53 +306,152 @@ partial class IscpConnection : IConnectionCallbacks
     public void Close()
     {
         if (!(this.Connection is Connection connection)) { return; }
+        if (Interlocked.Exchange(ref isClosing, 1) == 1)
+        {
+            // 既にクローズ処理中。
+            return;
+        }
+        Debug.Log($"[{ConnName}] iSCP Connection close. - IscpConnection");
+
         this.Connection = null;
+        Upstream[] upstreams;
+        Upstream[] usedUpstreams;
+        string measurementUuid;
         lock (upstreamLock)
         {
             foreach (var r in registeredUpstreams) r.SetUpstream(null);
-            registeredUpstreams.Clear();
+            upstreams = this.upstreams.ToArray();
+            this.upstreams.Clear();
+            usedUpstreams = this.usedUpstreams.ToArray();
+            this.usedUpstreams.Clear();
+            measurementUuid = this.SessionId;
         }
         lock (downstreamLock)
+        {
             foreach (var r in registeredDownstreams) r.SetDownstream(null);
-        var upstreams = this.usedUpstreams.ToArray();
-        this.usedUpstreams.Clear();
-        this.downstream = null;
+        }
 
-        connection.Close((exception) =>
+        // 非同期処理
+        Task.Run(async () =>
         {
             try
             {
+                // アップストリームを閉じる。
+                for (int i = 0; i < upstreams.Length; i++)
+                {
+                    var u = upstreams[i];
+                    var closeSession = i == (upstreams.Length - 1);
+                    Debug.Log($"Close upstream(id: {u.Id}, closeSession: {closeSession})");
+                    var err = await u.CloseAsync(closeSession).ConfigureAwait(false);
+                    if (err != null)
+                    {
+                        Debug.Log($"Failed to close upstream(id: {u.Id})");
+                        continue;
+                    }
+                    Debug.Log($"Success to close upstream(id: {u.Id})");
+                }
+                // コネクションを閉じる。
+                var exception = await connection.CloseAsync().ConfigureAwait(false);
                 if (exception != null)
                 {
-                    Debug.LogError($"Failed to disconnect connection[{ConnName}]. {exception.Message} - IscpConnection");
-                    return;
+                    Debug.LogError($"Failed to close connection[{ConnName}]. {exception.Message} - IscpConnection");
                 }
-                Debug.Log($"Success to disconnect connection[{ConnName}]. - IscpConnection");
+                Debug.Log($"Success to close connection[{ConnName}]. - IscpConnection");
                 connection.Dispose();
+
+                try
+                {
+                    // 計測の終了処理。
+                    using (var httpClient = this.ApiManager.GenerateHttpClient())
+                    {
+                        await EndMeasurementAsync(usedUpstreams, measurementUuid, httpClient).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Failed to end measurement[{measurementUuid}]. {e.Message} - IscpConnection");
+                }
             }
             finally
             {
-                EndUpstream(upstreams);
+                Interlocked.Exchange(ref isClosing, 0);
             }
         });
     }
 
-    public async void CloseAsync()
+    public async Task CloseAsync()
     {
         if (!(this.Connection is Connection connection)) { return; }
-        this.Connection = null;
-        var upstreams = this.usedUpstreams.ToArray();
-        this.usedUpstreams.Clear();
-        this.downstream = null;
-        var exception = await connection.CloseAsync().ConfigureAwait(false);
-        if (exception != null)
+        if (Interlocked.Exchange(ref isClosing, 1) == 1)
         {
-            Debug.LogError($"Failed to disconnect connection[{ConnName}]. {exception.Message} - IscpConnection");
+            // 既にクローズ処理中。
             return;
         }
-        Debug.Log($"Success to disconnect connection[{ConnName}]. - IscpConnection");
-        connection.Dispose();
-        EndUpstream(upstreams);
+
+        try
+        {
+            Debug.Log($"[{ConnName}] iSCP Connection close. - IscpConnection");
+            this.Connection = null;
+            Upstream[] upstreams;
+            Upstream[] usedUpstreams;
+            string measurementUuid;
+            lock (upstreamLock)
+            {
+                foreach (var r in registeredUpstreams) r.SetUpstream(null);
+                upstreams = this.upstreams.ToArray();
+                this.upstreams.Clear();
+                usedUpstreams = this.usedUpstreams.ToArray();
+                this.usedUpstreams.Clear();
+                measurementUuid = this.SessionId;
+            }
+            lock (downstreamLock)
+            {
+                foreach (var r in registeredDownstreams) r.SetDownstream(null);
+            }
+
+            // アップストリームを閉じる。
+            for (int i = 0; i < upstreams.Length; i++)
+            {
+                var u = upstreams[i];
+                var closeSession = i == (upstreams.Length - 1);
+                Debug.Log($"Close upstream(id: {u.Id}, closeSession: {closeSession})");
+                var err = await u.CloseAsync(closeSession).ConfigureAwait(false);
+                if (err != null)
+                {
+                    Debug.Log($"Failed to close upstream(id: {u.Id})");
+                    continue;
+                }
+                Debug.Log($"Success to close upstream(id: {u.Id})");
+            }
+
+            // コネクションを閉じる。
+            var exception = await connection.CloseAsync().ConfigureAwait(false);
+            if (exception != null)
+            {
+                Debug.LogError($"Failed to close connection[{ConnName}]. {exception.Message} - IscpConnection");
+                return;
+            }
+            Debug.Log($"Success to close connection[{ConnName}]. - IscpConnection");
+            connection.Dispose();
+
+            try
+            {
+                // 計測の終了処理。
+                using (var httpClient = this.ApiManager.GenerateHttpClient())
+                {
+                    await EndMeasurementAsync(usedUpstreams, measurementUuid, httpClient).ConfigureAwait(false);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to end measurement[{measurementUuid}]. {e.Message} - IscpConnection");
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref isClosing, 0);
+        }
+        
     }
     public void OnDisconnect(Connection connection)
     {
@@ -363,7 +491,9 @@ public class IscpDownstream : IEquatable<IscpDownstream>
     internal void SetDownstream(Downstream downstream)
     {
         lock (streamLock)
+        {
             Downstream = downstream;
+        }
     }
 
     public IIscpDownstreamCallbacks Callbacks;
@@ -409,10 +539,23 @@ partial class IscpConnection : IDownstreamCallbacks
     /// 受信したデータポイントをログに出力するかどうか。
     /// </summary>
     public bool EnableReceivedDataPointsLog = false;
-    private object downstreamLock = new object();
-    private Downstream downstream;
 
+    private object downstreamLock = new object();
     private List<IscpDownstream> registeredDownstreams = new List<IscpDownstream>();
+    private IscpDownstream GetRegisteredDownstream(Downstream downstream)
+    {
+        lock (downstreamLock)
+        {
+            foreach (var r in registeredDownstreams)
+            {
+                if (r.Downstream == downstream)
+                {
+                    return r;
+                }
+            }
+        }
+        return null;
+    }
 
     /// <summary>
     /// ダウンストリームを登録します。
@@ -448,8 +591,13 @@ partial class IscpConnection : IDownstreamCallbacks
 
     private void OpenDownstream()
     {
-        if (registeredDownstreams.Count == 0) return;
-        Debug.Log($"[{ConnName}] OpenDownstream({registeredDownstreams.Count} streams) - IscpConnection");
+        int downstreamCount;
+        lock (downstreamLock)
+        {
+            downstreamCount = registeredDownstreams.Count;
+            if (downstreamCount == 0) return;
+        }
+        Debug.Log($"[{ConnName}] OpenDownstream({downstreamCount} streams) - IscpConnection");
 
         var requests = new List<DownstreamRequest>();
         lock (downstreamLock)
@@ -488,7 +636,6 @@ partial class IscpConnection : IDownstreamCallbacks
                 }
                 // オープン成功。
                 Debug.Log($"[{ConnName}] Successfully open downstream(id: {downstream.Id}). name: {r.DataFilter.Name}, type: {r.DataFilter.Type}, nodeId: {r.NodeId} - IscpConnection");
-                this.downstream = downstream;
                 // 受信データを取り扱うためにデリゲートを設定します。
                 downstream.Callbacks = this; // IDownstreamCallbacks
                 foreach (var d in r.Downstreams)
@@ -527,36 +674,29 @@ partial class IscpConnection : IDownstreamCallbacks
                 }
             }
         }
-        foreach (var r in this.registeredDownstreams)
+
+        if (GetRegisteredDownstream(downstream) is IscpDownstream r)
         {
-            if (r.Downstream != downstream) continue;
             r.Callback?.Invoke(r.BaseTime, message.DataPointGroups);
         }
     }
 
     public void OnReceiveMetadata(Downstream downstream, DownstreamMetadata message)
     {
+        if (!(GetRegisteredDownstream(downstream) is IscpDownstream r)) return;
+
         switch (message.Type)
         {
             case DownstreamMetadata.MetadataType.BaseTime:
                 var baseTime = message.BaseTime.Value;
                 var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks().ToLocalTime();
-                foreach (var r in registeredDownstreams)
-                {
-                    if (downstream == r.Downstream)
-                    {
-                        r.BaseTime = dateTime;
-                    }
-                }
+                r.BaseTime = dateTime;
                 Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime} - IscpConnection.IDownstreamCallbacks");
                 break;
             default: break;
         }
-        foreach (var r in registeredDownstreams)
-        {
-            if (r.Downstream != downstream) continue;
-            r.Callbacks?.OnReceiveMetadata(r, message);
-        }
+
+        r.Callbacks?.OnReceiveMetadata(r, message);
     }
 
     public void OnFailWithError(Downstream downstream, Exception error)
@@ -567,6 +707,12 @@ partial class IscpConnection : IDownstreamCallbacks
     public void OnCloseWithError(Downstream downstream, Exception error)
     {
         Debug.LogWarning($"[{ConnName}] OnCloseWithError downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
+        if (IsClosing)
+        {
+            Debug.Log($"[{ConnName}] Skip ReopenDownstream because closing. - IscpConnection");
+            return;
+        }
+
         this.Connection?.ReopenDownstream(
            downstream: downstream,
            completion: (newStream, error) =>
@@ -576,15 +722,22 @@ partial class IscpConnection : IDownstreamCallbacks
                    Debug.LogWarning($"[{ConnName}] ReopenDownstream failed. {error?.Message ?? ""} - IscpConnection");
                    return;
                }
+               if (IsClosing)
+               {
+                   Debug.Log($"[{ConnName}] Close reopened downstream because closing. - IscpConnection");
+                   newStream?.Close();
+                   return;
+               }
+               if (!(GetRegisteredDownstream(downstream) is IscpDownstream r))
+               {
+                   Debug.LogWarning($"[{ConnName}] ReopenDownstream failed. Not found registered downstream[{downstream.Id}] - IscpConnection");
+                   newStream.Close();
+                   return;
+               }
                lock (downstreamLock)
                {
-                   this.downstream = newStream;
                    newStream.Callbacks = this;
-                   foreach (var r in registeredDownstreams)
-                   {
-                       if (r.Downstream != downstream) continue;
-                       r.SetDownstream(newStream);
-                   }
+                   r.SetDownstream(newStream);
                    Debug.Log($"[{ConnName}] ReopenDownstream successfully, new downstream[{newStream.Id}] - IscpConnection");
                    Task.Run(() =>
                    {
@@ -617,23 +770,18 @@ public class IscpUpstream : IEquatable<IscpUpstream>
 
     public readonly IscpConnection Connection;
     internal Upstream Upstream { private set; get; }
-    private object streamLock = new object();
 
     public void SetUpstream(Upstream upstream)
     {
-        lock (streamLock)
-            Upstream = upstream;
-        if (upstream != null)
-        {
-            SequenceId = upstream.Id.ToString();
-        }
+        Upstream = upstream;
+        SequenceId = upstream?.Id.ToString() ?? "";
     }
 
     public bool IsOpen => Upstream != null;
 
     public IIscpUpstreamCallbacks Callbacks;
 
-    public string SequenceId { internal set; get; }
+    public string SequenceId { private set; get; }
 
     public string SessionId { internal set; get; }
 
@@ -683,28 +831,28 @@ public class IscpUpstream : IEquatable<IscpUpstream>
     public Exception SendDataPoint(string dataName, string dataType, long elapsedTime, byte[] payload)
     {
         if (Connection == null) return new Exception("Connection is null");
-        if (Upstream == null) return new Exception("Upstream not yet opened.");
+        if (!(Upstream is Upstream upstream)) return new Exception("Upstream not yet opened.");
         if (IscpUpstreamRateCalculator.Shared is IscpUpstreamRateCalculator calc)
         {
             calc.AddByte((ulong)payload.Length);
         }
         var dataId = new DataId(name: dataName, type: dataType);
         var dataPoint = new DataPoint(elapsedTime: elapsedTime, payload: payload);
-        lock (streamLock)
+        var error = upstream.WriteDataPoint(dataId, dataPoint);
+        if (error != null)
         {
-            var error = Upstream?.WriteDataPoint(dataId, dataPoint);
-            if (error != null)
+            lock (Connection.failedSendLock)
             {
                 var buffer = new List<DataPointGroup>();
-                if (Connection.FailedSendDataPoints.ContainsKey(Upstream.Id))
+                if (Connection.FailedSendDataPoints.ContainsKey(upstream.Id))
                 {
-                    buffer = Connection.FailedSendDataPoints[Upstream.Id];
+                    buffer = Connection.FailedSendDataPoints[upstream.Id];
                 }
                 buffer.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
-                Connection.FailedSendDataPoints[Upstream.Id] = buffer;
+                Connection.FailedSendDataPoints[upstream.Id] = buffer;
             }
-            return error;
         }
+        return error;
     }
 
     #endregion
@@ -714,7 +862,7 @@ public class IscpUpstream : IEquatable<IscpUpstream>
     public Exception SendDataPoints((string name, string type, byte[] payload)[] points)
     {
         if (Connection == null) return new Exception("Connection is null");
-        if (Upstream == null) return new Exception("Upstream not yet opened.");
+        if (!(Upstream is Upstream upstream)) return new Exception("Upstream not yet opened.");
         var now = DateTime.UtcNow.Ticks;
         if (IscpUpstreamRateCalculator.Shared is IscpUpstreamRateCalculator calc)
         {
@@ -731,13 +879,13 @@ public class IscpUpstream : IEquatable<IscpUpstream>
             var dataPoint = new DataPoint(elapsedTime: elapsedTime, payload: p.payload);
             groups.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
         }
-        return SendDataPoints(groups.ToArray());
+        return SendDataPoints(upstream, groups.ToArray());
     }
 
     public Exception SendDataPoints((string name, string type, DateTime dateTime, byte[] payload)[] points)
     {
         if (Connection == null) return new Exception("Connection is null");
-        if (Upstream == null) return new Exception("Upstream not yet opened.");
+        if (!(Upstream is Upstream upstream)) return new Exception("Upstream not yet opened.");
         if (IscpUpstreamRateCalculator.Shared is IscpUpstreamRateCalculator calc)
         {
             foreach (var point in points)
@@ -753,13 +901,13 @@ public class IscpUpstream : IEquatable<IscpUpstream>
             var dataPoint = new DataPoint(elapsedTime: elapsedTime, payload: p.payload);
             groups.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
         }
-        return SendDataPoints(groups.ToArray());
+        return SendDataPoints(upstream, groups.ToArray());
     }
 
     public Exception SendDataPoints((string name, string type, long elapsedTime, byte[] payload)[] points)
     {
         if (Connection == null) return new Exception("Connection is null");
-        if (Upstream == null) return new Exception("Upstream not yet opened.");
+        if (!(Upstream is Upstream upstream)) return new Exception("Upstream not yet opened.");
         if (IscpUpstreamRateCalculator.Shared is IscpUpstreamRateCalculator calc)
         {
             foreach (var point in points)
@@ -774,26 +922,26 @@ public class IscpUpstream : IEquatable<IscpUpstream>
             var dataPoint = new DataPoint(elapsedTime: p.elapsedTime, payload: p.payload);
             groups.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
         }
-        return SendDataPoints(groups.ToArray());
+        return SendDataPoints(upstream, groups.ToArray());
     }
 
-    public Exception SendDataPoints(DataPointGroup[] groups)
+    public Exception SendDataPoints(Upstream upstream, DataPointGroup[] groups)
     {
-        lock (streamLock)
+        var error = upstream.WriteDataPoints(groups);
+        if (error != null)
         {
-            var error = Upstream?.WriteDataPoints(groups);
-            if (error != null)
+            lock (Connection.failedSendLock)
             {
                 var buffer = new List<DataPointGroup>();
-                if (Connection.FailedSendDataPoints.ContainsKey(Upstream.Id))
+                if (Connection.FailedSendDataPoints.ContainsKey(upstream.Id))
                 {
-                    buffer = Connection.FailedSendDataPoints[Upstream.Id];
+                    buffer = Connection.FailedSendDataPoints[upstream.Id];
                 }
                 buffer.AddRange(groups);
-                Connection.FailedSendDataPoints[Upstream.Id] = buffer;
+                Connection.FailedSendDataPoints[upstream.Id] = buffer;
             }
-            return error;
         }
+        return error;
     }
 
     #endregion
@@ -807,19 +955,37 @@ partial class IscpConnection : IUpstreamCallbacks
     public bool EnableSentDataPointsLog = false;
 
     private List<IscpUpstream> registeredUpstreams = new List<IscpUpstream>();
+    private IscpUpstream GetRegisteredUpstream(Upstream upstream)
+    {
+        lock (upstreamLock)
+        {
+            foreach (var r in registeredUpstreams)
+            {
+                if (r.Upstream == upstream)
+                {
+                    return r;
+                }
+            }
+        }
+        return null;
+    }
 
     private bool Persist
     {
         get
         {
-            foreach (var u in registeredUpstreams)
+            lock (upstreamLock)
             {
-                if (u.Persist) return true;
+                foreach (var u in registeredUpstreams)
+                {
+                    if (u.Persist) return true;
+                }
             }
             return false;
         }
     }
 
+    private List<Upstream> upstreams = new List<Upstream>();
     private List<Upstream> usedUpstreams = new List<Upstream>();
     private object upstreamLock = new object();
 
@@ -827,10 +993,11 @@ partial class IscpConnection : IUpstreamCallbacks
     [IntdashLabel("Session ID (Measurement UUID)")]
     private string SessionId = "";
     [SerializeField]
-    private UInt64 generatedSequenceNumber = 0;
+    private long generatedSequenceNumber = 0;
     [SerializeField]
-    private UInt64 receivedSequenceNumber = 0;
+    private long receivedSequenceNumber = 0;
     internal Dictionary<Guid, List<DataPointGroup>> FailedSendDataPoints = new Dictionary<Guid, List<DataPointGroup>>();
+    internal object failedSendLock = new object();
 
     public long EdgeRTCBaseTimeTicks { private set; get; } = 0;
 
@@ -855,8 +1022,13 @@ partial class IscpConnection : IUpstreamCallbacks
 
     private void OpenUpstream()
     {
-        if (registeredUpstreams.Count <= 0) return;
-        Debug.Log($"[{ConnName}] OpenUpstream(nodeUuid: {NodeId ?? ""}, {registeredUpstreams.Count} streams) - IscpConnection");
+        int upstreamCount;
+        lock (upstreamLock)
+        {
+            upstreamCount = registeredUpstreams.Count;
+            if (upstreamCount <= 0) return;
+        }
+        Debug.Log($"[{ConnName}] OpenUpstream(nodeUuid: {NodeId ?? ""}, {upstreamCount} streams) - IscpConnection");
         if (string.IsNullOrEmpty(NodeId))
         {
             Debug.LogWarning($"[{ConnName}] Failed to open upstream. nodeUuid is null or empty. - IscpConnection");
@@ -904,8 +1076,18 @@ partial class IscpConnection : IUpstreamCallbacks
         this.SessionId = sessionId;
         this.generatedSequenceNumber = 0;
         this.receivedSequenceNumber = 0;
+        lock (failedSendLock)
+        {
+            FailedSendDataPoints.Clear();
+        }
 
-        foreach (var r in registeredUpstreams)
+        IscpUpstream[] upstreams;
+        lock (upstreamLock)
+        {
+            upstreams = registeredUpstreams.ToArray();
+        }
+
+        foreach (var r in upstreams)
         {
             // Upstreamをオープンします。
             var persist = r.Persist && !string.IsNullOrEmpty(sessionId);
@@ -925,9 +1107,13 @@ partial class IscpConnection : IUpstreamCallbacks
             Debug.Log($"[{ConnName}] Successfully open upstream(id: {upstream.Id}) - IscpConnection");
             // 送信するデータポイントを保存したい場合や、アップストリームのエラーをハンドリングしたい場合はコールバックを設定します。
             upstream.Callbacks = this; // IUpstreamCallbacks
-            this.usedUpstreams.Add(upstream);
-            r.SetUpstream(upstream);
-            r.SessionId = upstream.SessionId;
+            lock (upstreamLock)
+            {
+                this.upstreams.Add(upstream);
+                this.usedUpstreams.Add(upstream);
+                r.SetUpstream(upstream);
+                r.SessionId = upstream.SessionId;
+            }
 
             // Send first data
             var metadata = new BaseTime(
@@ -952,116 +1138,106 @@ partial class IscpConnection : IUpstreamCallbacks
         }
     }
 
-    private void EndUpstream(Upstream[] upstreams)
+    private async Task EndMeasurementAsync(Upstream[] upstreams, string measurementUuid, HttpClient httpClient)
     {
-        Debug.Log($"EndUpstream({upstreams.Length} upstreams, sessionId: {this.SessionId}) - IscpConnection");
-        var measurementUuid = this.SessionId;
-        var generatedSequences = this.generatedSequenceNumber;
-        var receivedSequences = this.receivedSequenceNumber;
-        if (string.IsNullOrEmpty(this.SessionId)) return;
+        var generatedSequences = Interlocked.Read(ref this.generatedSequenceNumber);
+        var receivedSequences = Interlocked.Read(ref this.receivedSequenceNumber);
+        if (string.IsNullOrEmpty(measurementUuid)) return;
+        Debug.Log($"EndMeasurement({upstreams.Length} upstreams, measurementUuid: {measurementUuid}) - IscpConnection");
         if (apiConfiguration == null) return;
-        Task.Run(async () =>
+        if (generatedSequences == receivedSequences)
         {
-            if (generatedSequences == receivedSequences)
+            Debug.Log($"RequestCompleteMeasurementAsync measurementUuid: {measurementUuid} - IscpConnection");
+            try
             {
-                Debug.Log($"RequestCompleteMeasurementAsync measurementUuid: {measurementUuid} - IscpConnection");
+                var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
+                if (string.IsNullOrEmpty(ProjectUuid))
+                {
+                    var data = await api.CompleteMeasurementAsync(measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
+                }
+                else
+                {
+                    var data = await api.CompleteProjectMeasurementAsync(ProjectUuid, measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
+                }
+                Debug.Log("RequestCompleteMeasurementAsync successfully. - IscpConnection");
+            }
+            catch (Exception e)
+            {
+                Debug.Log($"RequestCompleteMeasurementAsync error. {e.Message} - IscpConnection");
+                return;
+            }
+        }
+        else
+        {
+            Debug.Log($"dropped measurement data. measurementUuid: {measurementUuid}, generatedSequences: {generatedSequences}, receveidSequences: {receivedSequences} - IscpConnection");
+            foreach (var u in upstreams)
+            {
+                if (!u.Persist) continue;
+                var state = u.GetState();
+                var sequenceUuid = u.Id.ToString();
+                var expectedDataPoints = state.TotalDataPoints;
+                var finalSequenceNumber = state.LastIssuedSequenceNumber;
+                Debug.Log($"RequestUpdateMeasurementSequenceAsync sequenceUuid: {sequenceUuid}, measurementUuid: {measurementUuid}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
+                try
+                {
+                    var replace = new intdash.Model.MeasurementSequenceGroupReplace(
+                        expectedDataPoints: (int)expectedDataPoints,
+                        finalSequenceNumber: (int)finalSequenceNumber);
+                    var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
+                    if (string.IsNullOrEmpty(ProjectUuid))
+                    {
+                        var data = await api.UpdateMeasurementSequenceAsync(
+                            measurementUuid: measurementUuid.ToLower(),
+                            sequencesUuid: sequenceUuid.ToLower(),
+                            measurementSequenceGroupReplace: replace).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        var data = await api.UpdateProjectMeasurementSequenceAsync(
+                            projectUuid: ProjectUuid,
+                            measurementUuid: measurementUuid.ToLower(),
+                            sequencesUuid: sequenceUuid.ToLower(),
+                            measurementSequenceGroupReplace: replace).ConfigureAwait(false);
+                    }
+                    Debug.Log($"RequestUpdateMeasurementSequenceAsync successfully. streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
+                }
+                catch (Exception e)
+                {
+                    Debug.Log($"RequestUpdateMeasurementSequenceAsync error. {e.Message}, streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
+                    return;
+                }
+            }
+            {
+                Debug.Log($"RequestEndMeasurementAsync measurementUuid: {measurementUuid} - IscpConnection");
                 try
                 {
                     var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
                     if (string.IsNullOrEmpty(ProjectUuid))
                     {
-                        var data = await api.CompleteMeasurementAsync(measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
+                        var data = await api.EndMeasurementAsync(measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
                     }
                     else
                     {
-                        var data = await api.CompleteProjectMeasurementAsync(ProjectUuid, measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
+                        var data = await api.EndProjectMeasurementAsync(projectUuid: ProjectUuid, measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
                     }
-                    Debug.Log("RequestCompleteMeasurementAsync successfully. - IscpConnection");
+                    Debug.Log("RequestEndMeasurementAsync successfully. - IscpConnection");
                 }
                 catch (Exception e)
                 {
-                    Debug.Log($"RequestCompleteMeasurementAsync error. {e.Message} - IscpConnection");
-                    return;
+                    Debug.Log($"RequestEndMeasurementAsync error. {e.Message} - IscpConnection");
                 }
             }
-            else
-            {
-                Debug.Log($"dropped measurement data. measurmentId: {measurementUuid}, generatedSequences: {generatedSequences}, receveidSequences: {receivedSequences} - IscpConnection");
-                foreach (var u in upstreams)
-                {
-                    if (!u.Persist) continue;
-                    var state = u.GetState();
-                    var sequenceUuid = u.Id.ToString();
-                    var expectedDataPoints = state.TotalDataPoints;
-                    var finalSequenceNumber = state.LastIssuedSequenceNumber;
-                    Debug.Log($"RequestUpdateMeasurementSequenceAsync sequenceUuid: {sequenceUuid}, measurementUuid: {measurementUuid}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
-                    try
-                    {
-                        var replace = new intdash.Model.MeasurementSequenceGroupReplace(
-                            expectedDataPoints: (int)expectedDataPoints,
-                            finalSequenceNumber: (int)finalSequenceNumber);
-                        var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
-                        if (string.IsNullOrEmpty(ProjectUuid))
-                        {
-                            var data = await api.UpdateMeasurementSequenceAsync(
-                                measurementUuid: measurementUuid.ToLower(),
-                                sequencesUuid: sequenceUuid.ToLower(),
-                                measurementSequenceGroupReplace: replace).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            var data = await api.UpdateProjectMeasurementSequenceAsync(
-                                projectUuid: ProjectUuid,
-                                measurementUuid: measurementUuid.ToLower(),
-                                sequencesUuid: sequenceUuid.ToLower(),
-                                measurementSequenceGroupReplace: replace).ConfigureAwait(false);
-                        }
-                        Debug.Log($"RequestUpdateMeasurementSequenceAsync successfully. streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.Log($"RequestUpdateMeasurementSequenceAsync error. {e.Message}, streamId: {u.Id}, expectedDataPoints: {expectedDataPoints}, finalSequenceNumber: {finalSequenceNumber} - IscpConnection");
-                        return;
-                    }
-                }
-                {
-                    Debug.Log($"RequestEndMeasurementAsync measurementUuid: {measurementUuid} - IscpConnection");
-                    try
-                    {
-                        var api = new MeasMeasurementsApi(httpClient, apiConfiguration);
-                        if (string.IsNullOrEmpty(ProjectUuid))
-                        {
-                            var data = await api.EndMeasurementAsync(measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            var data = await api.EndProjectMeasurementAsync(projectUuid: ProjectUuid, measurementUuid: measurementUuid.ToLower()).ConfigureAwait(false);
-                        }
-                        Debug.Log("RequestEndMeasurementAsync successfully. - IscpConnection");
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.Log($"RequestEndMeasurementAsync error. {e.Message} - IscpConnection");
-                    }
-                }
-            }
-        });
+        }
     }
 
     public void OnGenerateChunk(Upstream upstream, UpstreamChunk message)
     {
         if (EnableSentDataPointsLog)
             Debug.Log($"[{ConnName}] OnGenerateChunk upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, DataPointCount: {message.DataPointCount}, PayloadSize: {message.PayloadSize} - IscpConnection.IUpstreamCallbacks");
-        generatedSequenceNumber += 1;
-        lock (upstreamLock)
+        Interlocked.Increment(ref generatedSequenceNumber);
+        if (GetRegisteredUpstream(upstream) is IscpUpstream r)
         {
-            foreach (var r in registeredUpstreams)
-            {
-                if (r.Upstream == upstream)
-                {
-                    r.Callbacks?.OnGenerateChunk(r, r.SequenceId, message);
-                }
-            }
+            r.Callbacks?.OnGenerateChunk(r, r.SequenceId, message);
         }
     }
 
@@ -1069,16 +1245,10 @@ partial class IscpConnection : IUpstreamCallbacks
     {
         if (EnableSentDataPointsLog)
             Debug.Log($"[{ConnName}] OnReceiveAck upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, ResultCode: {message.ResultCode}, ResultString: {message.ResultString} - IscpConnection.IUpstreamCallbacks");
-        receivedSequenceNumber += 1;
-        lock (upstreamLock)
+        Interlocked.Increment(ref receivedSequenceNumber);
+        if (GetRegisteredUpstream(upstream) is IscpUpstream r)
         {
-            foreach (var r in registeredUpstreams)
-            {
-                if (r.Upstream == upstream)
-                {
-                    r.Callbacks?.OnReceiveAck(r, r.SequenceId, message);
-                }
-            }
+            r.Callbacks?.OnReceiveAck(r, r.SequenceId, message);
         }
     }
 
@@ -1090,6 +1260,12 @@ partial class IscpConnection : IUpstreamCallbacks
     public void OnCloseWithError(Upstream upstream, Exception error)
     {
         Debug.LogWarning($"[{ConnName}] OnCloseWithError upstream[{upstream.Id}], error: {error} - IscpConnection.IUpstreamCallbacks");
+        if (IsClosing)
+        {
+            Debug.Log($"[{ConnName}] Skip ReopenUpstream because closing. - IscpConnection");
+            return;
+        }
+
         this.Connection?.ReopenUpstream(
             upstream: upstream,
             completion: (newStream, error) =>
@@ -1099,40 +1275,52 @@ partial class IscpConnection : IUpstreamCallbacks
                     Debug.LogWarning($"[{ConnName}] ReopenUpstream failed. {error?.Message ?? ""} - IscpConnection");
                     return;
                 }
+                if (IsClosing)
+                {
+                    Debug.Log($"[{ConnName}] Close reopened upstream because closing. - IscpConnection");
+                    newStream?.Close();
+                    return;
+                }
+                if (!(GetRegisteredUpstream(upstream) is IscpUpstream r))
+                {
+                    Debug.LogWarning($"[{ConnName}] ReopenUpstream failed. Not found registered upstream[{upstream.Id}] - IscpConnection");
+                    newStream.Close();
+                    return;
+                }
+                DataPointGroup[] retryGroups = null;
+                lock (failedSendLock)
+                {
+                    if (FailedSendDataPoints.TryGetValue(upstream.Id, out var groups) &&
+                    groups != null && groups.Count > 0)
+                    {
+                        retryGroups = groups.ToArray();
+                        groups.Clear();
+                        FailedSendDataPoints.Remove(upstream.Id);
+                    }
+                }
                 lock (upstreamLock)
                 {
-                    this.usedUpstreams.Add(newStream);
                     newStream.Callbacks = this;
-                    IscpUpstream registeredUpstream = null;
-                    foreach (var r in registeredUpstreams)
-                    {
-                        if (r.Upstream == upstream)
-                        {
-                            registeredUpstream = r;
-                            break;
-                        }
-                    }
-                    if (registeredUpstream == null)
-                    {
-                        Debug.LogWarning($"[{ConnName}] Registerd upstream[{upstream.Id}] not found. - IscpConnection");
-                        return;
-                    }
+                    this.upstreams.Add(newStream);
+                    this.usedUpstreams.Add(newStream);
+                    r.SetUpstream(newStream);
                     Debug.Log($"[{ConnName}] ReopenUpstream successfully, new upstream[{newStream.Id}] - IscpConnection");
-                    registeredUpstream.SetUpstream(newStream);
-                    registeredUpstream.Callbacks?.OnOpen(registeredUpstream, registeredUpstream.SequenceId);
                     // 未送信のデータを持っていれば送信する
-                    if (FailedSendDataPoints[upstream.Id] is List<DataPointGroup> groups)
+                    if (retryGroups != null && retryGroups.Length > 0)
                     {
-                        registeredUpstream.SendDataPoints(groups.ToArray());
-                        groups.Clear();
+                        r.SendDataPoints(newStream, retryGroups);
                     }
                     Task.Run(() =>
                     {
                         // 不要になったストリームを閉じる(解放する)
                         upstream.Close();
-                        this.usedUpstreams.Remove(upstream);
+                        lock (upstreamLock)
+                        {
+                            this.upstreams.Remove(upstream);
+                        }
                     });
                 }
+                r.Callbacks?.OnOpen(r, r.SequenceId);
             });
     }
 

@@ -24,6 +24,21 @@ public class IntdashApiManager : MonoBehaviour
         return handler;
     }
     public HttpClient HttpClient = new HttpClient(GenerateHttpClientHandler());
+    /// <summary>
+    /// 現在の認証状態に基づいてHttpClientを生成します。
+    /// </summary>
+    /// <returns>生成されたHttpClient</returns>
+    public HttpClient GenerateHttpClient()
+    {
+        var handler = GenerateHttpClientHandler();
+        // ClientAuthCertificate
+        if (ClientAuthCertificate != null)
+        {
+            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+            handler.ClientCertificates.Add(ClientAuthCertificate);
+        }
+        return new HttpClient(handler);
+    }
 
     public Configuration Configuration { private set; get; } = new Configuration();
 
