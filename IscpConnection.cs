@@ -542,19 +542,20 @@ partial class IscpConnection : IDownstreamCallbacks
 
     private object downstreamLock = new object();
     private List<IscpDownstream> registeredDownstreams = new List<IscpDownstream>();
-    private IscpDownstream GetRegisteredDownstream(Downstream downstream)
+    private IscpDownstream[] GetRegisteredDownstreams(Downstream downstream)
     {
+        var results = new List<IscpDownstream>();
         lock (downstreamLock)
         {
             foreach (var r in registeredDownstreams)
             {
                 if (r.Downstream == downstream)
                 {
-                    return r;
+                    results.Add(r);
                 }
             }
         }
-        return null;
+        return results.ToArray();
     }
 
     /// <summary>
@@ -674,7 +675,7 @@ partial class IscpConnection : IDownstreamCallbacks
             }
         }
 
-        if (GetRegisteredDownstream(downstream) is IscpDownstream r)
+        foreach (var r in GetRegisteredDownstreams(downstream))
         {
             if (!(GetBaseTime(r, message.DataPointGroups) is DateTime baseTime))
             {
@@ -702,8 +703,7 @@ partial class IscpConnection : IDownstreamCallbacks
 
     public void OnReceiveMetadata(Downstream downstream, DownstreamMetadata message)
     {
-        if (!(GetRegisteredDownstream(downstream) is IscpDownstream r)) return;
-
+        var rs = GetRegisteredDownstreams(downstream);
         switch (message.Type)
         {
             case DownstreamMetadata.MetadataType.BaseTime:
@@ -714,17 +714,23 @@ partial class IscpConnection : IDownstreamCallbacks
                     startMeasurement = true;
                 }
                 var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks();
-                if (r.BaseTimePrioerity == null || (r.BaseTimePrioerity is byte priority && priority <= baseTime.Priority) || startMeasurement)
+                foreach (var r in rs)
                 {
-                    r.BaseTimePrioerity = baseTime.Priority;
-                    r.BaseTime = dateTime;
+                    if (r.BaseTimePrioerity == null || (r.BaseTimePrioerity is byte priority && priority <= baseTime.Priority) || startMeasurement)
+                    {
+                        r.BaseTimePrioerity = baseTime.Priority;
+                        r.BaseTime = dateTime;
+                    }
                 }
                 Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime.ToLocalTime()}, priority: {baseTime.Priority} - IscpConnection.IDownstreamCallbacks");
                 break;
             default: break;
         }
 
-        r.Callbacks?.OnReceiveMetadata(r, message);
+        foreach (var r in rs)
+        {
+            r.Callbacks?.OnReceiveMetadata(r, message);
+        }
     }
 
     public void OnFailWithError(Downstream downstream, Exception error)
@@ -756,7 +762,8 @@ partial class IscpConnection : IDownstreamCallbacks
                    newStream?.Close();
                    return;
                }
-               if (!(GetRegisteredDownstream(downstream) is IscpDownstream r))
+               var rs = GetRegisteredDownstreams(downstream);
+               if (rs.Length == 0)
                {
                    Debug.LogWarning($"[{ConnName}] ReopenDownstream failed. Not found registered downstream[{downstream.Id}] - IscpConnection");
                    newStream.Close();
@@ -765,7 +772,10 @@ partial class IscpConnection : IDownstreamCallbacks
                lock (downstreamLock)
                {
                    newStream.Callbacks = this;
-                   r.SetDownstream(newStream);
+                   foreach (var r in rs)
+                   {
+                       r.SetDownstream(newStream);
+                   }
                    Debug.Log($"[{ConnName}] ReopenDownstream successfully, new downstream[{newStream.Id}] - IscpConnection");
                    Task.Run(() =>
                    {
