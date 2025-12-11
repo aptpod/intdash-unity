@@ -708,13 +708,18 @@ partial class IscpConnection : IDownstreamCallbacks
         {
             case DownstreamMetadata.MetadataType.BaseTime:
                 var baseTime = message.BaseTime.Value;
+                var startMeasurement = false;
+                if (baseTime.Name == "api_first_received")
+                {
+                    startMeasurement = true;
+                }
                 var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks();
-                if (r.BaseTimePrioerity is byte priority && priority < baseTime.Priority)
+                if (r.BaseTimePrioerity == null || (r.BaseTimePrioerity is byte priority && priority <= baseTime.Priority) || startMeasurement)
                 {
                     r.BaseTimePrioerity = baseTime.Priority;
                     r.BaseTime = dateTime;
                 }
-                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime.ToLocalTime()} - IscpConnection.IDownstreamCallbacks");
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime.ToLocalTime()}, priority: {baseTime.Priority} - IscpConnection.IDownstreamCallbacks");
                 break;
             default: break;
         }
