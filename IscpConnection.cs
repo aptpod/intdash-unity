@@ -159,7 +159,7 @@ public partial class IscpConnection : MonoBehaviour
     private async void OnApplicationQuit()
     {
         Debug.Log($"[{ConnName}] OnApplicationQuit - IscpConnection");
-        isApplicationQuitting  = true;
+        isApplicationQuitting = true;
 
         try
         {
@@ -451,7 +451,7 @@ partial class IscpConnection : IConnectionCallbacks
         {
             Interlocked.Exchange(ref isClosing, 0);
         }
-        
+
     }
     public void OnDisconnect(Connection connection)
     {
@@ -498,7 +498,8 @@ public class IscpDownstream : IEquatable<IscpDownstream>
 
     public IIscpDownstreamCallbacks Callbacks;
 
-    public DateTime BaseTime { internal set; get; }
+    public DateTime? BaseTime { internal set; get; } = null;
+    public byte? BaseTimePrioerity { internal set; get; } = null;
 
     public IscpDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup[]> callback)
     {
@@ -507,7 +508,6 @@ public class IscpDownstream : IEquatable<IscpDownstream>
         this.NodeId = nodeId;
         this.DataFilter = new DataFilter(dataName, dataType);
         this.Callback = callback;
-        this.BaseTime = DateTime.Now;
     }
 
     public static bool operator ==(IscpDownstream l, IscpDownstream r) => l?.Equals(r) ?? (r is null);
@@ -641,7 +641,6 @@ partial class IscpConnection : IDownstreamCallbacks
                 foreach (var d in r.Downstreams)
                 {
                     d.SetDownstream(downstream);
-                    d.BaseTime = DateTime.UtcNow;
                 }
             }
         });
@@ -677,8 +676,28 @@ partial class IscpConnection : IDownstreamCallbacks
 
         if (GetRegisteredDownstream(downstream) is IscpDownstream r)
         {
-            r.Callback?.Invoke(r.BaseTime, message.DataPointGroups);
+            if (!(GetBaseTime(r, message.DataPointGroups) is DateTime baseTime))
+            {
+                Debug.LogWarning($"[{ConnName}] BaseTime is null for downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
+                return;
+            }
+            r.Callback?.Invoke(baseTime, message.DataPointGroups);
         }
+    }
+
+    private DateTime? GetBaseTime(IscpDownstream downstream, DataPointGroup[] dataPointGroups)
+    {
+        if (downstream.BaseTime != null) return downstream.BaseTime;
+        foreach (var group in dataPointGroups)
+        {
+            foreach (var dataPoint in group.DataPoints)
+            {
+                var baseTime = DateTime.UtcNow.AddTicks(-dataPoint.ElapsedTime);
+                downstream.BaseTime = baseTime;
+                return baseTime;
+            }
+        }
+        return null;
     }
 
     public void OnReceiveMetadata(Downstream downstream, DownstreamMetadata message)
@@ -689,9 +708,13 @@ partial class IscpConnection : IDownstreamCallbacks
         {
             case DownstreamMetadata.MetadataType.BaseTime:
                 var baseTime = message.BaseTime.Value;
-                var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks().ToLocalTime();
-                r.BaseTime = dateTime;
-                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime} - IscpConnection.IDownstreamCallbacks");
+                var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks();
+                if (r.BaseTimePrioerity is byte priority && priority < baseTime.Priority)
+                {
+                    r.BaseTimePrioerity = baseTime.Priority;
+                    r.BaseTime = dateTime;
+                }
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime.ToLocalTime()} - IscpConnection.IDownstreamCallbacks");
                 break;
             default: break;
         }
