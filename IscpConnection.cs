@@ -542,7 +542,7 @@ partial class IscpConnection : IDownstreamCallbacks
 
     private object downstreamLock = new object();
     private List<IscpDownstream> registeredDownstreams = new List<IscpDownstream>();
-    private IscpDownstream[] GetRegisteredDownstreams(Downstream downstream)
+    private List<IscpDownstream> GetRegisteredDownstreams(Downstream downstream)
     {
         var results = new List<IscpDownstream>();
         lock (downstreamLock)
@@ -555,7 +555,7 @@ partial class IscpConnection : IDownstreamCallbacks
                 }
             }
         }
-        return results.ToArray();
+        return results;
     }
 
     /// <summary>
@@ -680,7 +680,7 @@ partial class IscpConnection : IDownstreamCallbacks
             if (!(GetBaseTime(r, message.DataPointGroups) is DateTime baseTime))
             {
                 Debug.LogWarning($"[{ConnName}] BaseTime is null for downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
-                return;
+                continue;
             }
             r.Callback?.Invoke(baseTime, message.DataPointGroups);
         }
@@ -763,7 +763,7 @@ partial class IscpConnection : IDownstreamCallbacks
                    return;
                }
                var rs = GetRegisteredDownstreams(downstream);
-               if (rs.Length == 0)
+               if (rs.Count == 0)
                {
                    Debug.LogWarning($"[{ConnName}] ReopenDownstream failed. Not found registered downstream[{downstream.Id}] - IscpConnection");
                    newStream.Close();
@@ -917,7 +917,7 @@ public class IscpUpstream : IEquatable<IscpUpstream>
             var dataPoint = new DataPoint(elapsedTime: elapsedTime, payload: p.payload);
             groups.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
         }
-        return SendDataPoints(upstream, groups.ToArray());
+        return Connection.SendDataPoints(upstream, groups.ToArray());
     }
 
     public Exception SendDataPoints((string name, string type, DateTime dateTime, byte[] payload)[] points)
@@ -939,7 +939,7 @@ public class IscpUpstream : IEquatable<IscpUpstream>
             var dataPoint = new DataPoint(elapsedTime: elapsedTime, payload: p.payload);
             groups.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
         }
-        return SendDataPoints(upstream, groups.ToArray());
+        return Connection.SendDataPoints(upstream, groups.ToArray());
     }
 
     public Exception SendDataPoints((string name, string type, long elapsedTime, byte[] payload)[] points)
@@ -960,26 +960,7 @@ public class IscpUpstream : IEquatable<IscpUpstream>
             var dataPoint = new DataPoint(elapsedTime: p.elapsedTime, payload: p.payload);
             groups.Add(new DataPointGroup(dataId, new DataPoint[] { dataPoint }));
         }
-        return SendDataPoints(upstream, groups.ToArray());
-    }
-
-    public Exception SendDataPoints(Upstream upstream, DataPointGroup[] groups)
-    {
-        var error = upstream.WriteDataPoints(groups);
-        if (error != null)
-        {
-            lock (Connection.failedSendLock)
-            {
-                var buffer = new List<DataPointGroup>();
-                if (Connection.FailedSendDataPoints.ContainsKey(upstream.Id))
-                {
-                    buffer = Connection.FailedSendDataPoints[upstream.Id];
-                }
-                buffer.AddRange(groups);
-                Connection.FailedSendDataPoints[upstream.Id] = buffer;
-            }
-        }
-        return error;
+        return Connection.SendDataPoints(upstream, groups.ToArray());
     }
 
     #endregion
@@ -993,19 +974,20 @@ partial class IscpConnection : IUpstreamCallbacks
     public bool EnableSentDataPointsLog = false;
 
     private List<IscpUpstream> registeredUpstreams = new List<IscpUpstream>();
-    private IscpUpstream GetRegisteredUpstream(Upstream upstream)
+    private List<IscpUpstream> GetRegisteredUpstreams(Upstream upstream)
     {
+        var result = new List<IscpUpstream>();
         lock (upstreamLock)
         {
             foreach (var r in registeredUpstreams)
             {
                 if (r.Upstream == upstream)
                 {
-                    return r;
+                    result.Add(r);
                 }
             }
         }
-        return null;
+        return result;
     }
 
     private bool Persist
@@ -1176,6 +1158,25 @@ partial class IscpConnection : IUpstreamCallbacks
         }
     }
 
+    public Exception SendDataPoints(Upstream upstream, DataPointGroup[] groups)
+    {
+        var error = upstream.WriteDataPoints(groups);
+        if (error != null)
+        {
+            lock (failedSendLock)
+            {
+                var buffer = new List<DataPointGroup>();
+                if (FailedSendDataPoints.ContainsKey(upstream.Id))
+                {
+                    buffer = FailedSendDataPoints[upstream.Id];
+                }
+                buffer.AddRange(groups);
+                FailedSendDataPoints[upstream.Id] = buffer;
+            }
+        }
+        return error;
+    }
+
     private async Task EndMeasurementAsync(Upstream[] upstreams, string measurementUuid, HttpClient httpClient)
     {
         var generatedSequences = Interlocked.Read(ref this.generatedSequenceNumber);
@@ -1273,7 +1274,7 @@ partial class IscpConnection : IUpstreamCallbacks
         if (EnableSentDataPointsLog)
             Debug.Log($"[{ConnName}] OnGenerateChunk upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, DataPointCount: {message.DataPointCount}, PayloadSize: {message.PayloadSize} - IscpConnection.IUpstreamCallbacks");
         Interlocked.Increment(ref generatedSequenceNumber);
-        if (GetRegisteredUpstream(upstream) is IscpUpstream r)
+        foreach (var r in GetRegisteredUpstreams(upstream)) 
         {
             r.Callbacks?.OnGenerateChunk(r, r.SequenceId, message);
         }
@@ -1284,7 +1285,7 @@ partial class IscpConnection : IUpstreamCallbacks
         if (EnableSentDataPointsLog)
             Debug.Log($"[{ConnName}] OnReceiveAck upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, ResultCode: {message.ResultCode}, ResultString: {message.ResultString} - IscpConnection.IUpstreamCallbacks");
         Interlocked.Increment(ref receivedSequenceNumber);
-        if (GetRegisteredUpstream(upstream) is IscpUpstream r)
+        foreach (var r in GetRegisteredUpstreams(upstream))
         {
             r.Callbacks?.OnReceiveAck(r, r.SequenceId, message);
         }
@@ -1319,7 +1320,8 @@ partial class IscpConnection : IUpstreamCallbacks
                     newStream?.Close();
                     return;
                 }
-                if (!(GetRegisteredUpstream(upstream) is IscpUpstream r))
+                var rs = GetRegisteredUpstreams(upstream);
+                if (rs.Count == 0)
                 {
                     Debug.LogWarning($"[{ConnName}] ReopenUpstream failed. Not found registered upstream[{upstream.Id}] - IscpConnection");
                     newStream.Close();
@@ -1341,12 +1343,15 @@ partial class IscpConnection : IUpstreamCallbacks
                     newStream.Callbacks = this;
                     this.upstreams.Add(newStream);
                     this.usedUpstreams.Add(newStream);
-                    r.SetUpstream(newStream);
+                    foreach (var r in rs)
+                    {
+                        r.SetUpstream(newStream);
+                    }
                     Debug.Log($"[{ConnName}] ReopenUpstream successfully, new upstream[{newStream.Id}] - IscpConnection");
                     // 未送信のデータを持っていれば送信する
                     if (retryGroups != null && retryGroups.Length > 0)
                     {
-                        r.SendDataPoints(newStream, retryGroups);
+                        SendDataPoints(newStream, retryGroups);
                     }
                     Task.Run(() =>
                     {
@@ -1358,7 +1363,10 @@ partial class IscpConnection : IUpstreamCallbacks
                         }
                     });
                 }
-                r.Callbacks?.OnOpen(r, r.SequenceId);
+                foreach (var r in rs)
+                {
+                    r.Callbacks?.OnOpen(r, r.SequenceId);
+                }
             });
     }
 
