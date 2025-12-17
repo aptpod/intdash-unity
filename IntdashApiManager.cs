@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 
 using intdash.Api;
@@ -13,7 +14,15 @@ using UnityEngine;
 
 public class IntdashApiManager : MonoBehaviour
 {
-    public HttpClient HttpClient => IntdashHttpClientPool.Get(BasePath, ClientAuthCertificate);
+    public HttpClient HttpClient
+    {
+        get
+        {
+            var httpClient = IntdashHttpClientPool.Get(BasePath, ClientAuthCertificate);
+            httpClient.Timeout = ApiRequestTimeout > 0 ? TimeSpan.FromSeconds(ApiRequestTimeout) : Timeout.InfiniteTimeSpan;
+            return httpClient;
+        }
+    }
 
     public Configuration Configuration { private set; get; } = new Configuration();
 
@@ -354,6 +363,12 @@ public class IntdashApiManager : MonoBehaviour
     /// APIへのアクセスが有効かどうか。
     /// </summary>
     public bool IsEnableApi => !string.IsNullOrEmpty(AccessToken);
+
+    /// <summary>
+    /// APIリクエストのタイムアウト時間（秒）。
+    /// `0` 以下の場合はタイムアウトしません。
+    /// </summary>
+    public double ApiRequestTimeout = 60.0;
 
     private Lock refreshTokenLock = new Lock();
 
