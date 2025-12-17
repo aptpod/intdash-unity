@@ -44,7 +44,8 @@ public partial class IscpConnection : MonoBehaviour
     [SerializeField] private string ConnName = "Connection1";
 
     [SerializeField] private IntdashApiManager ApiManager;
-    private HttpClient httpClient;
+
+    private HttpClient httpClient => ApiManager.HttpClient;
     private Configuration apiConfiguration;
 
     public static IscpConnection GetOrCreateSharedInstance()
@@ -107,7 +108,6 @@ public partial class IscpConnection : MonoBehaviour
         }
         if (ApiManager != null)
         {
-            this.httpClient = ApiManager.HttpClient;
             this.apiConfiguration = ApiManager.Configuration;
         }
         if (ConnectOnStart)
@@ -362,10 +362,7 @@ partial class IscpConnection : IConnectionCallbacks
                 try
                 {
                     // 計測の終了処理。
-                    using (var httpClient = this.ApiManager.GenerateHttpClient())
-                    {
-                        await EndMeasurementAsync(usedUpstreams, measurementUuid, httpClient).ConfigureAwait(false);
-                    }
+                    await EndMeasurementAsync(usedUpstreams, measurementUuid).ConfigureAwait(false);
                 }
                 catch (Exception e)
                 {
@@ -437,10 +434,7 @@ partial class IscpConnection : IConnectionCallbacks
             try
             {
                 // 計測の終了処理。
-                using (var httpClient = this.ApiManager.GenerateHttpClient())
-                {
-                    await EndMeasurementAsync(usedUpstreams, measurementUuid, httpClient).ConfigureAwait(false);
-                }
+                await EndMeasurementAsync(usedUpstreams, measurementUuid).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -1177,7 +1171,7 @@ partial class IscpConnection : IUpstreamCallbacks
         return error;
     }
 
-    private async Task EndMeasurementAsync(Upstream[] upstreams, string measurementUuid, HttpClient httpClient)
+    private async Task EndMeasurementAsync(Upstream[] upstreams, string measurementUuid)
     {
         var generatedSequences = Interlocked.Read(ref this.generatedSequenceNumber);
         var receivedSequences = Interlocked.Read(ref this.receivedSequenceNumber);

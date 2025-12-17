@@ -13,32 +13,7 @@ using UnityEngine;
 
 public class IntdashApiManager : MonoBehaviour
 {
-    public static HttpClientHandler GenerateHttpClientHandler()
-    {
-        ServicePointManager.DefaultConnectionLimit = 256;
-        var handler = new HttpClientHandler();
-        if (handler.SupportsAutomaticDecompression)
-        {
-            handler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-        }
-        return handler;
-    }
-    public HttpClient HttpClient = new HttpClient(GenerateHttpClientHandler());
-    /// <summary>
-    /// 現在の認証状態に基づいてHttpClientを生成します。
-    /// </summary>
-    /// <returns>生成されたHttpClient</returns>
-    public HttpClient GenerateHttpClient()
-    {
-        var handler = GenerateHttpClientHandler();
-        // ClientAuthCertificate
-        if (ClientAuthCertificate != null)
-        {
-            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-            handler.ClientCertificates.Add(ClientAuthCertificate);
-        }
-        return new HttpClient(handler);
-    }
+    public HttpClient HttpClient => IntdashHttpClientPool.Get(BasePath, ClientAuthCertificate);
 
     public Configuration Configuration { private set; get; } = new Configuration();
 
@@ -88,29 +63,14 @@ public class IntdashApiManager : MonoBehaviour
         }
     }
 
-    private X509Certificate _ClientAuthCertificate = null;
-    public X509Certificate ClientAuthCertificate
+    private X509Certificate2 _ClientAuthCertificate = null;
+    public X509Certificate2 ClientAuthCertificate
     {
         get => _ClientAuthCertificate;
         set
         {
             _ClientAuthCertificate = value;
-            ResetHttpClient();
         }
-    }
-
-    private void ResetHttpClient()
-    {
-        var handler = GenerateHttpClientHandler();
-        var oldClient = HttpClient;
-        // ClientAuthCertificate
-        if (ClientAuthCertificate != null)
-        {
-            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-            handler.ClientCertificates.Add(ClientAuthCertificate);
-        }
-        HttpClient = new HttpClient(handler);
-        oldClient?.Dispose();
     }
 
     /// <summary>
@@ -415,12 +375,25 @@ public class IntdashApiManager : MonoBehaviour
         SetMetadata();
     }
 
+    private bool isApplicationQuitting = false;
+
+    private void OnApplicationQuit()
+    {
+        Debug.Log($"OnApplicationQuit - IntdashApiManager");
+        isApplicationQuitting = true;
+    }
+
     private void OnDestroy()
     {
         Debug.Log($"OnDestroy - IntdashApiManager");
         if (Shared == this)
+        {
             Shared = null;
-        HttpClient.Dispose();
+        }
+        if (isApplicationQuitting)
+        {
+            HttpClient?.Dispose();
+        }
     }
 
     public delegate void EnableAPIListener(string version);
