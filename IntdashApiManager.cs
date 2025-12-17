@@ -630,7 +630,7 @@ public class IntdashApiManager : MonoBehaviour
             var res = await api.IssueTokenAsync(
                 grantType: "refresh_token",
             refreshToken: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.RefreshToken : OAuth2ClientSecretInfo.RefreshToken,
-                clientId: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientId : OAuth2ClientSecretInfo.RefreshToken).ConfigureAwait(false);
+                clientId: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientId : OAuth2ClientSecretInfo.ClientId).ConfigureAwait(false);
             ProcessAccessTokenResponse(res);
         }
         catch (Exception e)
