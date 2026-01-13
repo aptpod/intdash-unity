@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using UnityEngine;
 
 /// <summary>
@@ -11,6 +12,8 @@ using UnityEngine;
 /// </summary>
 public class IntdashHttpClientPool : MonoBehaviour
 {
+    public const double HTTP_CLIENT_DEFAULT_TIMEOUT_SECONDS = 60;
+
     private static IntdashHttpClientPool instance;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -32,17 +35,23 @@ public class IntdashHttpClientPool : MonoBehaviour
     private readonly struct Key : IEquatable<Key>
     {
         public readonly string BaseUrl;
-        public readonly string CertId; // Thumbprint 等
+        public readonly string CertId; // Thumbprint
+        public readonly double TimeoutSeconds; // -1 = infinite
 
-        public Key(string baseUrl, string certId)
+        public Key(string baseUrl, string certId, double timeoutSeconds)
         {
             BaseUrl = baseUrl ?? "";
             CertId = certId ?? "";
+            TimeoutSeconds = timeoutSeconds;
         }
 
-        public bool Equals(Key other) => BaseUrl == other.BaseUrl && CertId == other.CertId;
+        public bool Equals(Key other) =>
+            BaseUrl == other.BaseUrl &&
+            CertId == other.CertId &&
+            TimeoutSeconds == other.TimeoutSeconds;
+
         public override bool Equals(object obj) => obj is Key k && Equals(k);
-        public override int GetHashCode() => HashCode.Combine(BaseUrl, CertId);
+        public override int GetHashCode() => HashCode.Combine(BaseUrl, CertId, TimeoutSeconds);
     }
 
     private bool isApplicationQuitting = false;
@@ -63,21 +72,29 @@ public class IntdashHttpClientPool : MonoBehaviour
     private static readonly ConcurrentDictionary<Key, Lazy<HttpClient>> clients = new();
 
     /// <summary>
-    /// baseUrl と client cert でキー付けされた HttpClient を取得（同条件なら再利用）。
+    /// baseUrl と client cert とタイムアウト秒数でキー付けされた HttpClient を取得（同条件なら再利用）。
     /// </summary>
-    public static HttpClient Get(string baseUrl, X509Certificate2 cert = null)
+    /// <returns>新規作成された場合 true、既存のものが返された場合 false。</returns>
+    public static bool Get(string baseUrl, out HttpClient httpClient, double timeoutSeconds = HTTP_CLIENT_DEFAULT_TIMEOUT_SECONDS, X509Certificate2 cert = null)
     {
-        var normalized = NormalizeBase(baseUrl);
+       var normalized = NormalizeBase(baseUrl);
+
+        // 正規化（0以下は infinite 扱い）
+        var ts = timeoutSeconds > 0 ? timeoutSeconds : -1;
+
         var certId = cert != null ? cert.Thumbprint : "";
-        var key = new Key(normalized, certId);
+        var key = new Key(normalized, certId, ts);
 
-        var lazy = clients.GetOrAdd(key, _ =>
-            new Lazy<HttpClient>(() => CreateClient(cert), true));
+        var newLazy = new Lazy<HttpClient>(() => CreateClient(cert, ts), isThreadSafe: true);
+        var actualLazy = clients.GetOrAdd(key, newLazy);
 
-        return lazy.Value;
+        var createdNew = ReferenceEquals(actualLazy, newLazy);
+
+        httpClient = actualLazy.Value;
+        return createdNew;
     }
 
-    private static HttpClient CreateClient(X509Certificate2 cert)
+    private static HttpClient CreateClient(X509Certificate2 cert, double timeoutSeconds = HTTP_CLIENT_DEFAULT_TIMEOUT_SECONDS)
     {
         var handler = new HttpClientHandler();
         if (handler.SupportsAutomaticDecompression)
@@ -88,7 +105,14 @@ public class IntdashHttpClientPool : MonoBehaviour
             handler.ClientCertificateOptions = ClientCertificateOption.Manual;
             handler.ClientCertificates.Add(cert);
         }
-        return new HttpClient(handler, disposeHandler: true);
+
+        var client = new HttpClient(handler, disposeHandler: true);
+
+        client.Timeout = timeoutSeconds > 0
+            ? TimeSpan.FromSeconds(timeoutSeconds)
+            : Timeout.InfiniteTimeSpan;
+
+        return client;
     }
 
     private static void DisposeAll()

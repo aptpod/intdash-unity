@@ -18,8 +18,7 @@ public class IntdashApiManager : MonoBehaviour
     {
         get
         {
-            var httpClient = IntdashHttpClientPool.Get(BasePath, ClientAuthCertificate);
-            httpClient.Timeout = ApiRequestTimeout > 0 ? TimeSpan.FromSeconds(ApiRequestTimeout) : Timeout.InfiniteTimeSpan;
+            IntdashHttpClientPool.Get(BasePath, out var httpClient, ApiRequestTimeout, ClientAuthCertificate);
             return httpClient;
         }
     }
