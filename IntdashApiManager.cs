@@ -383,13 +383,13 @@ public class IntdashApiManager : MonoBehaviour
         return script;
     }
 
+    private bool isApplicationQuitting = false;
+
     private void Awake()
     {
         Debug.Log($"Awake - IntdashApiManager");
         SetMetadata();
     }
-
-    private bool isApplicationQuitting = false;
 
     private void OnApplicationQuit()
     {
@@ -515,36 +515,25 @@ public class IntdashApiManager : MonoBehaviour
     /// 有効なトークンを取得します。
     /// <para>トークンの有効期限が切れていればトークンのリフレッシュを行います</para>
     /// </summary>
-    public void GetEnableToken(Action<string> completion)
+    public void GetEnableToken(Action<string> completion, CancellationToken cancellationToken = default)
     {
         if (Type == AuthorizationType.ApiToken)
         {
-            completion(ApiTokenInfo.ApiToken);
-            return;
-        }
-        this.refreshTokenLock.Wait();
-        if (EdgeClientSecretInfo.IsAccessTokenRefreshable)
-        {
-            this.refreshTokenLock.Release();
-            completion?.Invoke(AccessToken);
+            completion?.Invoke(ApiTokenInfo.ApiToken);
             return;
         }
         Task.Run(async () =>
         {
-            await UpdateAccessTokenWithRefreshTokenAsync().ConfigureAwait(false);
-            this.refreshTokenLock.Release();
-            if (Type == AuthorizationType.EdgeClientSecret)
+            string token = null;
+            try
             {
-                completion?.Invoke(EdgeClientSecretInfo.IsAccessTokenRefreshable ? this.AccessToken : null);
+                token = await GetEnableTokenAsync(cancellationToken).ConfigureAwait(false);
             }
-            else if (Type == AuthorizationType.OAuth2ClientSecret)
+            catch (Exception)
             {
-                completion?.Invoke(OAuth2ClientSecretInfo.IsAccessTokenRefreshable ? this.AccessToken : null);
+                token = null;
             }
-            else
-            {
-                completion?.Invoke(null);
-            }
+            completion?.Invoke(token);
         });
     }
 
@@ -552,7 +541,7 @@ public class IntdashApiManager : MonoBehaviour
     /// 有効なトークンを取得します。
     /// <para>トークンの有効期限が切れていればトークンのリフレッシュを行います</para>
     /// </summary>
-    public async Task<string> GetEnableTokenAsync()
+    public async Task<string> GetEnableTokenAsync(CancellationToken cancellationToken = default)
     {
         if (Type == AuthorizationType.ApiToken)
         {
@@ -569,11 +558,11 @@ public class IntdashApiManager : MonoBehaviour
                 }
                 if (EdgeClientSecretInfo.IsRefreshTokenRefreshable)
                 {
-                    await UpdateAccessTokenWithRefreshTokenAsync().ConfigureAwait(false);
+                    await UpdateAccessTokenWithRefreshTokenAsync(cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await UpdateAccessTokenWithClientSecretAsync().ConfigureAwait(false);
+                    await UpdateAccessTokenWithClientSecretAsync(cancellationToken).ConfigureAwait(false);
                 }
                 return (EdgeClientSecretInfo.IsAccessTokenRefreshable ? this.AccessToken : null);
             }
@@ -585,11 +574,11 @@ public class IntdashApiManager : MonoBehaviour
                 }
                 if (OAuth2ClientSecretInfo.IsRefreshTokenRefreshable)
                 {
-                    await UpdateAccessTokenWithRefreshTokenAsync().ConfigureAwait(false);
+                    await UpdateAccessTokenWithRefreshTokenAsync(cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await UpdateAccessTokenWithClientSecretAsync().ConfigureAwait(false);
+                    await UpdateAccessTokenWithClientSecretAsync(cancellationToken).ConfigureAwait(false);
                 }
                 return (OAuth2ClientSecretInfo.IsAccessTokenRefreshable ? this.AccessToken : null);
             }
@@ -601,8 +590,7 @@ public class IntdashApiManager : MonoBehaviour
         }
     }
 
-
-    public async Task<Exception> UpdateAccessTokenWithClientSecretAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+    public async Task<Exception> UpdateAccessTokenWithClientSecretAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -621,7 +609,7 @@ public class IntdashApiManager : MonoBehaviour
         return null;
     }
 
-    public async Task<Exception> UpdateAccessTokenWithRefreshTokenAsync()
+    public async Task<Exception> UpdateAccessTokenWithRefreshTokenAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -629,7 +617,8 @@ public class IntdashApiManager : MonoBehaviour
             var res = await api.IssueTokenAsync(
                 grantType: "refresh_token",
             refreshToken: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.RefreshToken : OAuth2ClientSecretInfo.RefreshToken,
-                clientId: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientId : OAuth2ClientSecretInfo.ClientId).ConfigureAwait(false);
+                clientId: Type == AuthorizationType.EdgeClientSecret ? EdgeClientSecretInfo.ClientId : OAuth2ClientSecretInfo.ClientId,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             ProcessAccessTokenResponse(res);
         }
         catch (Exception e)
@@ -708,7 +697,7 @@ public class IntdashApiManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError("Failed to set client auth certificate. "  + e.Message);
+            Debug.LogError("Failed to set client auth certificate. " + e.Message);
         }
     }
 }
