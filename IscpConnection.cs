@@ -328,7 +328,11 @@ partial class IscpConnection : IConnectionCallbacks
         }
         lock (downstreamLock)
         {
-            foreach (var r in registeredDownstreams) r.SetDownstream(null);
+            foreach (var r in registeredDownstreams)
+            {
+                r.SetDownstream(null);
+                r.BaseTimeSessions.Clear();
+            }
         }
 
         // 非同期処理
@@ -403,7 +407,11 @@ partial class IscpConnection : IConnectionCallbacks
             }
             lock (downstreamLock)
             {
-                foreach (var r in registeredDownstreams) r.SetDownstream(null);
+                foreach (var r in registeredDownstreams)
+                {
+                    r.SetDownstream(null);
+                    r.BaseTimeSessions.Clear();
+                }
             }
 
             // アップストリームを閉じる。
@@ -471,6 +479,19 @@ public interface IIscpDownstreamCallbacks
     void OnReceiveMetadata(IscpDownstream downstream, DownstreamMetadata message);
 }
 
+public struct BaseTimeSession
+{
+    public DateTime BaseTime;
+    public byte Priority;
+    public string SessionId;
+    public BaseTimeSession(DateTime baseTime, byte priority, string sessionId)
+    {
+        BaseTime = baseTime;
+        Priority = priority;
+        SessionId = sessionId;
+    }
+}
+
 public class IscpDownstream : IEquatable<IscpDownstream>
 {
     public readonly Guid Id;
@@ -482,6 +503,7 @@ public class IscpDownstream : IEquatable<IscpDownstream>
     internal Downstream Downstream { private set; get; }
     private object streamLock = new object();
 
+
     internal void SetDownstream(Downstream downstream)
     {
         lock (streamLock)
@@ -492,8 +514,7 @@ public class IscpDownstream : IEquatable<IscpDownstream>
 
     public IIscpDownstreamCallbacks Callbacks;
 
-    public DateTime? BaseTime { internal set; get; } = null;
-    public byte? BaseTimePrioerity { internal set; get; } = null;
+    public Dictionary<string, BaseTimeSession> BaseTimeSessions = new Dictionary<string, BaseTimeSession>();
 
     public IscpDownstream(string nodeId, string dataName, string dataType, Action<DateTime, DataPointGroup[]> callback)
     {
@@ -657,7 +678,7 @@ partial class IscpConnection : IDownstreamCallbacks
     {
         if (message.DataPointGroups.Length == 0) return;
         if (EnableReceivedDataPointsLog)
-            Debug.Log($"[{ConnName}] OnReceiveChunk downstream[{downstream.Id}], {message.DataPointGroups.Length} groups. - IscpConnection.IDownstreamCallbacks");
+            Debug.Log($"[{ConnName}] OnReceiveChunk downstream[{downstream.Id}], {message.DataPointGroups.Length} groups, sourceNodeId: {message.UpstreamInfo.SourceNodeId}, sessionId: {message.UpstreamInfo.SessionId}. - IscpConnection.IDownstreamCallbacks");
         if (IscpDownstreamRateCalculator.Shared is IscpDownstreamRateCalculator calc)
         {
             foreach (var group in message.DataPointGroups)
@@ -671,7 +692,7 @@ partial class IscpConnection : IDownstreamCallbacks
 
         foreach (var r in GetRegisteredDownstreams(downstream))
         {
-            if (!(GetBaseTime(r, message.DataPointGroups) is DateTime baseTime))
+            if (!(GetBaseTime(r, message) is DateTime baseTime))
             {
                 Debug.LogWarning($"[{ConnName}] BaseTime is null for downstream[{downstream.Id}] - IscpConnection.IDownstreamCallbacks");
                 continue;
@@ -680,15 +701,17 @@ partial class IscpConnection : IDownstreamCallbacks
         }
     }
 
-    private DateTime? GetBaseTime(IscpDownstream downstream, DataPointGroup[] dataPointGroups)
+    private DateTime? GetBaseTime(IscpDownstream downstream, DownstreamChunk message)
     {
-        if (downstream.BaseTime != null) return downstream.BaseTime;
-        foreach (var group in dataPointGroups)
+        if (downstream.BaseTimeSessions.ContainsKey(message.UpstreamInfo.SessionId))
+        {
+            return downstream.BaseTimeSessions[message.UpstreamInfo.SessionId].BaseTime;
+        }
+        foreach (var group in message.DataPointGroups)
         {
             foreach (var dataPoint in group.DataPoints)
             {
                 var baseTime = DateTime.UtcNow.AddTicks(-dataPoint.ElapsedTime);
-                downstream.BaseTime = baseTime;
                 return baseTime;
             }
         }
@@ -710,15 +733,35 @@ partial class IscpConnection : IDownstreamCallbacks
                 var dateTime = baseTime.BaseTime_.ToDateTimeFromUnixTimeTicks();
                 foreach (var r in rs)
                 {
-                    if (r.BaseTimePrioerity == null || (r.BaseTimePrioerity is byte priority && priority <= baseTime.Priority) || startMeasurement)
+                    if (!r.BaseTimeSessions.ContainsKey(baseTime.SessionId))
                     {
-                        r.BaseTimePrioerity = baseTime.Priority;
-                        r.BaseTime = dateTime;
+                        r.BaseTimeSessions[baseTime.SessionId] = new BaseTimeSession(dateTime, baseTime.Priority, baseTime.SessionId);
+                    }
+                    else
+                    {
+                        var session = r.BaseTimeSessions[baseTime.SessionId];
+                        if (session.Priority <= baseTime.Priority || startMeasurement)
+                        {
+                            r.BaseTimeSessions[baseTime.SessionId] = new BaseTimeSession(dateTime, baseTime.Priority, baseTime.SessionId);
+                        }
                     }
                 }
-                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime.ToLocalTime()}, priority: {baseTime.Priority} - IscpConnection.IDownstreamCallbacks");
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} name: {baseTime.Name}, baseTime: {dateTime.ToLocalTime()}, priority: {baseTime.Priority}, sessionId: {baseTime.SessionId} - IscpConnection.IDownstreamCallbacks");
                 break;
-            default: break;
+            case DownstreamMetadata.MetadataType.UpstreamNormalClose:
+                var ustreamNormalClose = message.UpstreamNormalClose.Value;
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} sessionId: {ustreamNormalClose.SessionId} - IscpConnection.IDownstreamCallbacks");
+                foreach (var r in rs)
+                {
+                    if (r.BaseTimeSessions.ContainsKey(ustreamNormalClose.SessionId))
+                    {
+                        r.BaseTimeSessions.Remove(ustreamNormalClose.SessionId);
+                    }
+                }
+                break;
+            default:
+                Debug.Log($"[{ConnName}] OnReceiveMetadata downstream[{downstream.Id}] type: {message.Type} - IscpConnection.IDownstreamCallbacks");
+                break;
         }
 
         foreach (var r in rs)
@@ -1268,7 +1311,7 @@ partial class IscpConnection : IUpstreamCallbacks
         if (EnableSentDataPointsLog)
             Debug.Log($"[{ConnName}] OnGenerateChunk upstream[{upstream.Id}], SequenceNumber: {message.SequenceNumber}, DataPointCount: {message.DataPointCount}, PayloadSize: {message.PayloadSize} - IscpConnection.IUpstreamCallbacks");
         Interlocked.Increment(ref generatedSequenceNumber);
-        foreach (var r in GetRegisteredUpstreams(upstream)) 
+        foreach (var r in GetRegisteredUpstreams(upstream))
         {
             r.Callbacks?.OnGenerateChunk(r, r.SequenceId, message);
         }
