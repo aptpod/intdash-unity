@@ -492,20 +492,7 @@ public class IntdashApiManager : MonoBehaviour
                         }
                     }
                     break;
-                case AuthorizationType.OAuth2ClientSecret:
-                    {
-                        try
-                        {
-                            Debug.Log("InvokeGetMeAsEdge() - IntdashApiManager");
-                            var response = await (new AuthEdgesApi(HttpClient, Configuration)).GetMeAsEdgeAsync().ConfigureAwait(false);
-                            Debug.Log($"OnReceiveGetMeAsEdge name: {response.Name}, uuid: {response.Uuid} - IntdashApiManager");
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogWarning($"Failed to GetMeAsEdge access. {e.Message} - IntdashApiManager");
-                        }
-                    }
-                    break;
+                default: break;
             }
             OnEnableApi?.Invoke(ApiVersion);
         });
